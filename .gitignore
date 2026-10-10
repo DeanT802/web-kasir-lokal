@@ -1,3 +1,20 @@
+# dependencies
 node_modules/
+
+# database files (mencegah database lokal & file temporarinya ikut ke-upload)
+data/*.db
+data/*.db-*
+
+# uploaded files (mencegah file hasil upload user ikut ter-track)
+public/uploads/*
+!public/uploads/.gitkeep
+
+# temporary or scratch files
+scratch/
+
+# environment variables
 .env
-/data/kasir.db
+
+# operating system junk
+.DS_Store
+Thumbs.db
