@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Base Coffee</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body>
+    <div id="app" class="min-h-screen bg-slate-100">
+      <div class="max-w-7xl mx-auto p-6">
+        <header class="mb-6 bg-white rounded-2xl shadow p-6">
+          <div class="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 class="text-3xl font-bold text-slate-800">Base Coffee</h1>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="px-3 py-1 rounded-full text-sm bg-emerald-100 text-emerald-700 font-semibold">Mode Kasir</span>
+              <span class="px-3 py-1 rounded-full text-sm bg-slate-100 text-slate-600">Laptop Friendly</span>
+            </div>
+          </div>
+          <div class="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="bg-slate-50 rounded-2xl p-4">
+              <p class="text-xs text-slate-500">Omzet Hari Ini</p>
+              <p class="text-xl font-bold text-slate-800">{{ formatRupiah(ringkasanHariIni.pemasukan) }}</p>
+            </div>
+            <div class="bg-slate-50 rounded-2xl p-4">
+              <p class="text-xs text-slate-500">Transaksi Hari Ini</p>
+              <p class="text-xl font-bold text-slate-800">{{ ringkasanHariIni.total_transaksi }}</p>
+            </div>
+            <div class="bg-slate-50 rounded-2xl p-4">
+              <p class="text-xs text-slate-500">Item Terjual Hari Ini</p>
+              <p class="text-xl font-bold text-slate-800">{{ ringkasanHariIni.total_item }}</p>
+            </div>
+          </div>
+          <nav class="mt-5 flex flex-wrap gap-3">
+            <button
+              class="px-4 py-2 rounded-full font-semibold"
+              :class="halamanAktif === 'kasir' ? 'bg-amber-500 text-white' : 'bg-white text-slate-600'"
+              @click="halamanAktif = 'kasir'"
+            >
+              Kasir
+            </button>
+            <button
+              class="px-4 py-2 rounded-full font-semibold"
+              :class="halamanAktif === 'transaksi' ? 'bg-amber-500 text-white' : 'bg-white text-slate-600'"
+              @click="halamanAktif = 'transaksi'"
+            >
+              Riwayat Transaksi
+            </button>
+            <button
+              class="px-4 py-2 rounded-full font-semibold"
+              :class="halamanAktif === 'stok' ? 'bg-amber-500 text-white' : 'bg-white text-slate-600'"
+              @click="halamanAktif = 'stok'"
+            >
+              Manajemen Stok
+            </button>
+            <button
+              class="px-4 py-2 rounded-full font-semibold"
+              :class="halamanAktif === 'rekap' ? 'bg-amber-500 text-white' : 'bg-white text-slate-600'"
+              @click="halamanAktif = 'rekap'"
+            >
+              Rekap Shift
+            </button>
+            <button
+              class="px-4 py-2 rounded-full font-semibold"
+              :class="halamanAktif === 'menu-baru' ? 'bg-amber-500 text-white' : 'bg-white text-slate-600'"
+              @click="halamanAktif = 'menu-baru'"
+            >
+              Menu Baru
+            </button>
+          </nav>
+        </header>
+
+        <div v-if="halamanAktif === 'kasir'" class="grid grid-cols-1 lg:grid-cols-10 gap-6">
+          <section class="lg:col-span-7">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div class="bg-white rounded-2xl shadow p-4">
+                <p class="text-sm text-slate-500">Menu tersedia</p>
+                <p class="text-2xl font-bold text-slate-800">{{ daftarMenu.length }}</p>
+              </div>
+              <div class="bg-white rounded-2xl shadow p-4">
+                <p class="text-sm text-slate-500">Item di keranjang</p>
+                <p class="text-2xl font-bold text-slate-800">{{ keranjang.length }}</p>
+              </div>
+              <div class="bg-white rounded-2xl shadow p-4">
+                <p class="text-sm text-slate-500">Total sementara</p>
+                <p class="text-2xl font-bold text-slate-800">{{ formatRupiah(totalHarga) }}</p>
+              </div>
+            </div>
+            <div class="bg-white rounded-2xl shadow p-4 mb-4">
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div class="md:col-span-2">
+                  <label class="text-sm font-semibold text-slate-600">Cari Menu</label>
+                  <input
+                    v-model="kataKunciMenu"
+                    class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2"
+                    placeholder="Ketik nama menu..."
+                  />
+                </div>
+                <div>
+                  <label class="text-sm font-semibold text-slate-600">Filter Stok</label>
+                  <button
+                    class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold"
+                    :class="filterStokRendah ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-700'"
+                    @click="filterStokRendah = !filterStokRendah"
+                  >
+                    {{ filterStokRendah ? 'Stok Rendah Aktif' : 'Stok Rendah' }}
+                  </button>
+                </div>
+                <div>
+                  <label class="text-sm font-semibold text-slate-600">Urutkan</label>
+                  <select
+                    v-model="urutkanMenu"
+                    class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2"
+                  >
+                    <option value="nama">Nama (A-Z)</option>
+                    <option value="harga">Harga (tinggi)</option>
+                    <option value="stok">Stok (rendah)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-3 mb-4">
+              <button
+                v-for="kategori in daftarKategori"
+                :key="kategori"
+                @click="kategoriAktif = kategori"
+                :class="[kategoriAktif === kategori ? 'bg-amber-500 text-white' : 'bg-white text-slate-600', 'px-4 py-2 rounded-full font-semibold shadow']"
+              >
+                {{ kategori.toUpperCase() }}
+              </button>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div
+                v-for="menu in menuTersaring"
+                :key="menu.id"
+                class="bg-white rounded-2xl shadow p-4 flex flex-col justify-between"
+              >
+                <div class="space-y-3">
+                  <div class="bg-slate-100 rounded-xl h-28 overflow-hidden">
+                    <picture v-if="menu.gambar_url">
+                      <source
+                        v-if="gambarWebp(menu)"
+                        :srcset="gambarWebp(menu)"
+                        type="image/webp"
+                      />
+                      <img
+                        :src="gambarMenu(menu)"
+                        :alt="menu.nama"
+                        class="w-full h-full object-cover"
+                      />
+                    </picture>
+                    <div v-else class="w-full h-full flex items-center justify-center text-slate-400 text-sm">
+                      Tanpa Foto
+                    </div>
+                  </div>
+                  <h3 class="text-lg font-semibold text-slate-800">{{ menu.nama }}</h3>
+                  <p class="text-slate-500 capitalize">{{ menu.kategori }}</p>
+                </div>
+                <div class="mt-4">
+                  <p class="text-xl font-bold text-slate-900">{{ formatRupiah(menu.harga) }}</p>
+                  <p class="text-sm text-slate-500">Stok: {{ menu.stok }}</p>
+                </div>
+                <button
+                  class="mt-4 bg-emerald-500 text-white text-lg font-bold py-3 rounded-xl"
+                  @click="tambahKeKeranjang(menu)"
+                >
+                  Tambah
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <aside class="lg:col-span-3 bg-white rounded-2xl shadow p-5 flex flex-col">
+            <h2 class="text-2xl font-bold text-slate-800 mb-4">Keranjang</h2>
+
+            <div class="flex-1 space-y-4 overflow-y-auto">
+              <div
+                v-for="item in keranjang"
+                :key="item.menu_id"
+                class="border-b border-slate-200 pb-3"
+              >
+                <div class="flex justify-between items-start">
+                  <div>
+                    <p class="font-semibold text-slate-800">{{ item.nama }}</p>
+                    <p class="text-sm text-slate-500">{{ formatRupiah(item.harga) }}</p>
+                  </div>
+                  <p class="font-bold text-slate-800">{{ formatRupiah(item.subtotal) }}</p>
+                </div>
+                <div class="flex items-center gap-3 mt-3">
+                  <button class="w-10 h-10 rounded-full bg-slate-100 text-xl" @click="kurangiItem(item)">-</button>
+                  <span class="text-lg font-semibold">{{ item.kuantitas }}</span>
+                  <button class="w-10 h-10 rounded-full bg-slate-100 text-xl" @click="tambahKeKeranjangDenganId(item.menu_id)">+</button>
+                </div>
+              </div>
+
+              <div v-if="keranjang.length === 0" class="text-slate-400 text-center py-12">
+                Keranjang masih kosong.
+              </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-200 space-y-4">
+              <div>
+                <p class="text-sm font-semibold text-slate-500 mb-2">Pilih Meja</p>
+                <select
+                  v-model="mejaDipilih"
+                  class="w-full border border-slate-200 rounded-xl px-3 py-2"
+                >
+                  <option :value="null">Tanpa Meja</option>
+                  <option v-for="meja in daftarMeja" :key="meja.id" :value="meja.id">
+                    {{ meja.nama }}
+                  </option>
+                </select>
+                <p class="text-xs text-slate-400 mt-1">Gunakan jika pelanggan duduk di tempat.</p>
+              </div>
+              <div>
+                <p class="text-sm font-semibold text-slate-500 mb-2">Metode Pembayaran</p>
+                <div class="flex gap-2 flex-wrap">
+                  <button
+                    v-for="metode in daftarMetode"
+                    :key="metode"
+                    class="px-4 py-2 rounded-full text-sm font-semibold"
+                    :class="metodePembayaran === metode ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-700'"
+                    @click="metodePembayaran = metode"
+                  >
+                    {{ metode.toUpperCase() }}
+                  </button>
+                </div>
+                <p class="text-xs text-slate-400 mt-1">Pilih sesuai pembayaran pelanggan.</p>
+              </div>
+              <div class="flex justify-between text-lg font-semibold mb-4">
+                <span>Total</span>
+                <span>{{ formatRupiah(totalHarga) }}</span>
+              </div>
+              <button
+                class="w-full bg-amber-500 text-white text-2xl font-bold py-4 rounded-2xl"
+                :disabled="sedangMemproses"
+                @click="prosesCheckout"
+              >
+                {{ sedangMemproses ? 'MEMPROSES...' : 'BAYAR' }}
+              </button>
+            </div>
+          </aside>
+        </div>
+
+        <section v-if="halamanAktif === 'transaksi'" class="bg-white rounded-2xl shadow p-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2">
+              <h2 class="text-2xl font-bold text-slate-800 mb-4">Riwayat Transaksi</h2>
+                <div class="bg-slate-50 rounded-2xl p-4 mb-4">
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label class="text-sm font-semibold text-slate-600">Filter Tanggal</label>
+                      <input
+                        v-model="tanggalFilterTransaksi"
+                        type="date"
+                        class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2"
+                      />
+                    </div>
+                    <div class="flex items-end gap-2">
+                      <button
+                        class="w-full bg-emerald-500 text-white font-semibold px-4 py-2 rounded-xl"
+                        @click="ambilTransaksi"
+                      >
+                        Terapkan
+                      </button>
+                      <button
+                        class="w-full bg-amber-500 text-white font-semibold px-4 py-2 rounded-xl"
+                        @click="filterTransaksiHariIni"
+                      >
+                        Hari Ini
+                      </button>
+                      <button
+                        class="w-full bg-slate-200 text-slate-700 font-semibold px-4 py-2 rounded-xl"
+                        @click="resetFilterTransaksi"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              <div class="space-y-3 max-h-[480px] overflow-y-auto">
+                <button
+                  v-for="trx in transaksiList"
+                  :key="trx.id"
+                  class="w-full text-left border border-slate-200 rounded-xl p-4 hover:bg-slate-50"
+                  @click="lihatDetailTransaksi(trx.id)"
+                >
+                  <div class="flex justify-between">
+                    <div>
+                      <p class="font-semibold">Transaksi #{{ trx.id }}</p>
+                      <p class="text-sm text-slate-500">{{ trx.tanggal_waktu }}</p>
+                      <p class="text-sm text-slate-500">{{ trx.meja_nama || 'Tanpa Meja' }}</p>
+                    </div>
+                    <div class="text-right">
+                      <p class="font-bold">{{ formatRupiah(trx.total_harga) }}</p>
+                      <p class="text-xs uppercase text-slate-500">{{ trx.metode_pembayaran }}</p>
+                    </div>
+                  </div>
+                </button>
+                <div v-if="transaksiList.length === 0" class="text-slate-400 text-center py-6">
+                  Belum ada transaksi.
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-slate-50 rounded-2xl p-4">
+              <h3 class="text-xl font-bold text-slate-800 mb-3">Detail Transaksi</h3>
+              <div v-if="transaksiDetail" class="space-y-3">
+                <p class="text-sm text-slate-500">#{{ transaksiDetail.transaksi.id }}</p>
+                <p class="text-sm text-slate-500">{{ transaksiDetail.transaksi.tanggal_waktu }}</p>
+                <p class="text-sm text-slate-500">
+                  {{ transaksiDetail.transaksi.meja_nama || 'Tanpa Meja' }}
+                </p>
+                <div class="space-y-2">
+                  <div
+                    v-for="item in transaksiDetail.items"
+                    :key="item.id"
+                    class="flex justify-between text-sm"
+                  >
+                    <span>{{ item.nama }} x{{ item.kuantitas }}</span>
+                    <span>{{ formatRupiah(item.subtotal) }}</span>
+                  </div>
+                </div>
+                <div class="border-t border-slate-200 pt-3 flex justify-between font-semibold">
+                  <span>Total</span>
+                  <span>{{ formatRupiah(transaksiDetail.transaksi.total_harga) }}</span>
+                </div>
+              </div>
+              <div v-else class="text-slate-400">Pilih transaksi untuk melihat detail.</div>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="halamanAktif === 'menu-baru'" class="bg-white rounded-2xl shadow p-6">
+          <h2 class="text-2xl font-bold text-slate-800 mb-4">Tambah Menu Baru</h2>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="space-y-4">
+              <div>
+                <label class="text-sm font-semibold text-slate-600">Nama Menu</label>
+                <input
+                  v-model="menuBaru.nama"
+                  class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2"
+                  placeholder="Contoh: Espresso"
+                />
+              </div>
+              <div>
+                <label class="text-sm font-semibold text-slate-600">Kategori</label>
+                <select
+                  v-model="menuBaru.kategori"
+                  class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2"
+                >
+                  <option value="kopi">Kopi</option>
+                  <option value="non-kopi">Non-Kopi</option>
+                  <option value="snack">Snack</option>
+                </select>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label class="text-sm font-semibold text-slate-600">Harga</label>
+                  <input
+                    v-model="menuBaru.harga"
+                    type="number"
+                    class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2"
+                    placeholder="25000"
+                  />
+                </div>
+                <div>
+                  <label class="text-sm font-semibold text-slate-600">Stok Awal</label>
+                  <input
+                    v-model="menuBaru.stok"
+                    type="number"
+                    class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2"
+                    placeholder="10"
+                  />
+                </div>
+              </div>
+              <div>
+                <label class="text-sm font-semibold text-slate-600">Foto Menu (Upload)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 bg-white"
+                  @change="pilihFotoMenu"
+                />
+                <p class="text-xs text-slate-400 mt-1">Opsional. Jika tidak diisi, bisa gunakan URL.</p>
+              </div>
+              <div>
+                <label class="text-sm font-semibold text-slate-600">Foto Menu (URL)</label>
+                <input
+                  v-model="menuBaru.gambar_url"
+                  type="text"
+                  class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2"
+                  placeholder="https://..."
+                />
+              </div>
+              <button
+                class="bg-emerald-500 text-white font-semibold px-4 py-3 rounded-xl"
+                :class="menuBaru.loading ? 'opacity-70 cursor-not-allowed' : ''"
+                :disabled="menuBaru.loading"
+                @click="simpanMenuBaru"
+              >
+                {{ menuBaru.loading ? 'MENGUNGGAH...' : 'Simpan Menu' }}
+              </button>
+              <div v-if="menuBaru.progress > 0" class="mt-3">
+                <p class="text-xs text-slate-500 mb-1">Upload: {{ menuBaru.progress }}%</p>
+                <div class="h-2 bg-slate-100 rounded-full">
+                  <div class="h-2 bg-emerald-500 rounded-full" :style="{ width: menuBaru.progress + '%' }"></div>
+                </div>
+              </div>
+            </div>
+            <div class="bg-slate-50 rounded-2xl p-6">
+              <h3 class="text-xl font-bold text-slate-800 mb-3">Preview</h3>
+              <div class="bg-white rounded-2xl shadow p-4">
+                <div class="bg-slate-100 rounded-xl h-40 overflow-hidden">
+                  <img
+                    v-if="menuBaru.preview"
+                    :src="menuBaru.preview"
+                    alt="Preview"
+                    class="w-full h-full object-cover"
+                  />
+                  <div v-else class="w-full h-full flex items-center justify-center text-slate-400 text-sm">
+                    Preview foto belum tersedia
+                  </div>
+                </div>
+                <div class="mt-4">
+                  <p class="font-semibold text-slate-800">{{ menuBaru.nama || 'Nama Menu' }}</p>
+                  <p class="text-sm text-slate-500 capitalize">{{ menuBaru.kategori || 'kategori' }}</p>
+                  <p class="text-lg font-bold text-slate-900 mt-2">{{ menuBaru.harga ? formatRupiah(menuBaru.harga) : 'Rp 0' }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white rounded-2xl shadow p-6">
+              <h3 class="text-xl font-bold text-slate-800 mb-4">Edit Menu</h3>
+              <div v-if="menuEdit" class="space-y-4">
+                <div>
+                  <label class="text-sm font-semibold text-slate-600">Nama Menu</label>
+                  <input v-model="menuEdit.nama" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" />
+                </div>
+                <div>
+                  <label class="text-sm font-semibold text-slate-600">Kategori</label>
+                  <select v-model="menuEdit.kategori" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2">
+                    <option value="kopi">Kopi</option>
+                    <option value="non-kopi">Non-Kopi</option>
+                    <option value="snack">Snack</option>
+                  </select>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label class="text-sm font-semibold text-slate-600">Harga</label>
+                    <input v-model="menuEdit.harga" type="number" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" />
+                  </div>
+                  <div>
+                    <label class="text-sm font-semibold text-slate-600">Stok</label>
+                    <input v-model="menuEdit.stok" type="number" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" />
+                  </div>
+                </div>
+                <div>
+                  <label class="text-sm font-semibold text-slate-600">Foto Menu (Upload)</label>
+                  <input type="file" accept="image/*" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 bg-white" @change="pilihFotoEdit" />
+                </div>
+                <div>
+                  <label class="text-sm font-semibold text-slate-600">Foto Menu (URL)</label>
+                  <input v-model="menuEdit.gambar_url" class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2" />
+                </div>
+                <button
+                  class="bg-emerald-500 text-white font-semibold px-4 py-3 rounded-xl"
+                  :class="menuEdit.loading ? 'opacity-70 cursor-not-allowed' : ''"
+                  :disabled="menuEdit.loading"
+                  @click="simpanMenuEdit"
+                >
+                  {{ menuEdit.loading ? 'MENGUNGGAH...' : 'Simpan Perubahan' }}
+                </button>
+                <div v-if="menuEdit.progress > 0" class="mt-3">
+                  <p class="text-xs text-slate-500 mb-1">Upload: {{ menuEdit.progress }}%</p>
+                  <div class="h-2 bg-slate-100 rounded-full">
+                    <div class="h-2 bg-emerald-500 rounded-full" :style="{ width: menuEdit.progress + '%' }"></div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="text-slate-400">
+                Pilih menu dari daftar untuk diedit.
+              </div>
+            </div>
+            <div class="bg-white rounded-2xl shadow p-6">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-slate-800">Daftar Menu</h3>
+                <label class="flex items-center gap-2 text-sm text-slate-600">
+                  <input type="checkbox" v-model="tampilkanNonaktif" />
+                  Tampilkan Nonaktif
+                </label>
+              </div>
+              <div class="space-y-3 max-h-[420px] overflow-y-auto">
+                <div v-for="menu in daftarMenu" :key="menu.id" class="border border-slate-200 rounded-xl p-3">
+                  <div class="flex justify-between items-start">
+                    <div>
+                      <p class="font-semibold">{{ menu.nama }}</p>
+                      <p class="text-sm text-slate-500 capitalize">
+                        {{ menu.kategori }} · Stok {{ menu.stok }}
+                        <span v-if="menu.aktif === 0" class="ml-2 text-xs text-rose-500">Nonaktif</span>
+                      </p>
+                      <p class="text-sm font-semibold">{{ formatRupiah(menu.harga) }}</p>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                      <button class="bg-amber-500 text-white text-sm font-semibold px-3 py-2 rounded-xl" @click="pilihMenuEdit(menu)">Edit</button>
+                      <button
+                        v-if="menu.aktif === 1"
+                        class="bg-rose-500 text-white text-sm font-semibold px-3 py-2 rounded-xl"
+                        @click="hapusMenu(menu.id)"
+                      >
+                        Hapus
+                      </button>
+                      <button
+                        v-else
+                        class="bg-emerald-500 text-white text-sm font-semibold px-3 py-2 rounded-xl"
+                        @click="aktifkanMenu(menu.id)"
+                      >
+                        Aktifkan
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="daftarMenu.length === 0" class="text-slate-400 text-center py-6">
+                  Belum ada menu.
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+  <section v-if="halamanAktif === 'stok'" class="space-y-6">
+          <div class="bg-white rounded-2xl shadow p-6">
+            <h2 class="text-2xl font-bold text-slate-800 mb-4">Modifikasi Stok</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div
+                v-for="menu in daftarMenu"
+                :key="menu.id"
+                class="border border-slate-200 rounded-2xl p-4"
+              >
+                <div class="flex justify-between items-start">
+                  <div>
+                    <p class="font-semibold">{{ menu.nama }}</p>
+                    <p class="text-sm text-slate-500">Stok: {{ menu.stok }}</p>
+                  </div>
+                  <p class="text-xs uppercase text-slate-400">{{ menu.kategori }}</p>
+                </div>
+                <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <input
+                    v-model="perubahanStok[menu.id]"
+                    type="number"
+                    class="border border-slate-200 rounded-xl px-3 py-2"
+                    placeholder="+/- stok"
+                  />
+                  <input
+                    v-model="catatanStok[menu.id]"
+                    type="text"
+                    class="border border-slate-200 rounded-xl px-3 py-2"
+                    placeholder="Catatan"
+                  />
+                  <button
+                    class="bg-emerald-500 text-white font-semibold rounded-xl"
+                    @click="ubahStokMenu(menu.id)"
+                  >
+                    Simpan
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl shadow p-6">
+            <h3 class="text-xl font-bold text-slate-800 mb-4">Riwayat Perubahan Stok</h3>
+            <div class="space-y-2 max-h-[360px] overflow-y-auto">
+              <div
+                v-for="log in stokLogs"
+                :key="log.id"
+                class="border border-slate-200 rounded-xl p-3"
+              >
+                <div class="flex justify-between">
+                  <div>
+                    <p class="font-semibold">{{ log.nama_menu }}</p>
+                    <p class="text-sm text-slate-500">{{ log.tanggal_waktu }}</p>
+                  </div>
+                  <div class="text-right text-sm">
+                    <p class="font-semibold">{{ log.perubahan > 0 ? '+' : '' }}{{ log.perubahan }}</p>
+                    <p class="text-slate-500">{{ log.stok_awal }} → {{ log.stok_akhir }}</p>
+                  </div>
+                </div>
+                <p class="text-xs text-slate-400" v-if="log.catatan">{{ log.catatan }}</p>
+              </div>
+              <div v-if="stokLogs.length === 0" class="text-slate-400 text-center py-6">
+                Belum ada log stok.
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl shadow p-6">
+            <h3 class="text-xl font-bold text-slate-800 mb-4">Manajemen Meja</h3>
+            <div class="flex flex-wrap gap-3 mb-4">
+              <input
+                v-model="namaMejaBaru"
+                class="border border-slate-200 rounded-xl px-3 py-2"
+                placeholder="Nama meja baru"
+              />
+              <button class="bg-emerald-500 text-white font-semibold px-4 py-2 rounded-xl" @click="tambahMejaBaru">
+                Tambah Meja
+              </button>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <div
+                v-for="meja in daftarMeja"
+                :key="meja.id"
+                class="flex items-center gap-2 border border-slate-200 rounded-full px-4 py-2"
+              >
+                <span>{{ meja.nama }}</span>
+                <button class="text-red-500" @click="hapusMeja(meja.id)">Hapus</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="halamanAktif === 'rekap'" class="space-y-6">
+          <div class="bg-white rounded-2xl shadow p-6">
+            <h2 class="text-2xl font-bold text-slate-800 mb-4">Shift Kasir</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+              <div class="rounded-2xl p-4" :class="shiftAktif ? 'bg-emerald-50' : 'bg-rose-50'">
+                <p class="text-xs text-slate-500">Status Shift</p>
+                <p class="text-lg font-semibold" :class="shiftAktif ? 'text-emerald-700' : 'text-rose-600'">
+                  {{ shiftAktif ? 'AKTIF' : 'TIDAK AKTIF' }}
+                </p>
+              </div>
+              <div class="bg-slate-50 rounded-2xl p-4">
+                <p class="text-xs text-slate-500">Waktu Buka</p>
+                <p class="text-sm text-slate-700">{{ shiftAktif?.buka_waktu || '-' }}</p>
+              </div>
+              <div class="bg-slate-50 rounded-2xl p-4">
+                <p class="text-xs text-slate-500">Saldo Awal</p>
+                <p class="text-sm text-slate-700">{{ shiftAktif ? formatRupiah(shiftAktif.saldo_awal) : '-' }}</p>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label class="text-sm font-semibold text-slate-600">Saldo Awal (Buka Shift)</label>
+                <input
+                  v-model="saldoAwal"
+                  type="number"
+                  class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2"
+                  placeholder="Masukkan saldo awal"
+                />
+                <p class="text-xs text-slate-400 mt-1">Isi saat membuka shift.</p>
+              </div>
+              <div>
+                <label class="text-sm font-semibold text-slate-600">Saldo Akhir (Tutup Shift)</label>
+                <input
+                  v-model="saldoAkhir"
+                  type="number"
+                  class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2"
+                  placeholder="Masukkan saldo akhir"
+                />
+                <p class="text-xs text-slate-400 mt-1">Isi saat menutup shift.</p>
+              </div>
+              <div>
+                <label class="text-sm font-semibold text-slate-600">Catatan Shift</label>
+                <input
+                  v-model="catatanShift"
+                  type="text"
+                  class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2"
+                  placeholder="Contoh: Kasir pagi"
+                />
+                <p class="text-xs text-slate-400 mt-1">Opsional untuk keterangan kasir.</p>
+              </div>
+            </div>
+            <div class="flex gap-3 mt-4">
+              <button class="bg-emerald-500 text-white font-semibold px-4 py-2 rounded-xl" @click="bukaShift">
+                Buka Shift
+              </button>
+              <button class="bg-rose-500 text-white font-semibold px-4 py-2 rounded-xl" @click="tutupShift">
+                Tutup Shift
+              </button>
+            </div>
+            <p class="text-xs text-slate-400 mt-3">Tips: pastikan tutup shift dilakukan setelah semua transaksi selesai.</p>
+          </div>
+
+          <div class="bg-white rounded-2xl shadow p-6">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h3 class="text-xl font-bold text-slate-800">Rekap Harian</h3>
+              <button
+                class="bg-emerald-500 text-white font-semibold px-3 py-2 rounded-xl"
+                @click="unduhCsvRekap"
+              >
+                Export CSV
+              </button>
+            </div>
+            <div class="space-y-3">
+              <div
+                v-for="rekap in rekapHarian"
+                :key="rekap.tanggal"
+                class="border border-slate-200 rounded-xl p-4"
+              >
+                <div class="flex justify-between">
+                  <div>
+                    <p class="font-semibold">{{ rekap.tanggal }}</p>
+                    <p class="text-sm text-slate-500">Transaksi: {{ rekap.total_transaksi }}</p>
+                    <p class="text-sm text-slate-500">Item terjual: {{ rekap.total_item }}</p>
+                  </div>
+                  <div class="text-right">
+                    <p class="font-bold">{{ formatRupiah(rekap.pemasukan) }}</p>
+                  </div>
+                </div>
+                <div class="mt-3 h-2 bg-slate-100 rounded-full">
+                  <div
+                    class="h-2 bg-emerald-500 rounded-full"
+                    :style="{ width: persenPemasukan(rekap.pemasukan) + '%' }"
+                  ></div>
+                </div>
+              </div>
+              <div v-if="rekapHarian.length === 0" class="text-slate-400 text-center py-6">
+                Belum ada rekap.
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl shadow p-6">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h3 class="text-xl font-bold text-slate-800">Menu Terlaris</h3>
+              <div class="flex flex-wrap items-center gap-2">
+                <input
+                  v-model="tanggalRekapItem"
+                  type="date"
+                  class="border border-slate-200 rounded-xl px-3 py-2"
+                />
+                <button
+                  class="bg-emerald-500 text-white font-semibold px-3 py-2 rounded-xl"
+                  @click="ambilRekapItemHarian(tanggalRekapItem)"
+                >
+                  Terapkan
+                </button>
+                <button
+                  class="bg-amber-500 text-white font-semibold px-3 py-2 rounded-xl"
+                  @click="filterRekapItemHariIni"
+                >
+                  Hari Ini
+                </button>
+                <button
+                  class="bg-slate-100 text-slate-700 font-semibold px-3 py-2 rounded-xl"
+                  @click="resetRekapItem"
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+            <div class="space-y-3">
+              <div
+                v-for="item in rekapItemHarian"
+                :key="item.menu_id"
+                class="border border-slate-200 rounded-xl p-4 flex justify-between"
+              >
+                <div>
+                  <p class="font-semibold">{{ item.nama }}</p>
+                  <p class="text-sm text-slate-500">Terjual: {{ item.total_terjual }}</p>
+                </div>
+                <div class="text-right">
+                  <p class="font-bold">{{ formatRupiah(item.total_penjualan) }}</p>
+                </div>
+              </div>
+              <div v-if="rekapItemHarian.length === 0" class="text-slate-400 text-center py-6">
+                Belum ada data menu terlaris.
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div
+        v-if="toast.tampil"
+        class="fixed bottom-6 right-6 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-lg"
+      >
+        {{ toast.pesan }}
+      </div>
+
+      <div
+        v-if="modalKonfirmasi.tampil"
+        class="fixed inset-0 bg-black/40 flex items-center justify-center p-4"
+      >
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+          <h3 class="text-xl font-bold text-slate-800 mb-3">Konfirmasi</h3>
+          <p class="text-slate-600 mb-6">{{ modalKonfirmasi.pesan }}</p>
+          <div class="flex gap-3 justify-end">
+            <button
+              class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-semibold"
+              @click="tutupKonfirmasi"
+            >
+              Batal
+            </button>
+            <button
+              class="px-4 py-2 rounded-xl bg-rose-500 text-white font-semibold"
+              @click="jalankanKonfirmasi"
+            >
+              Ya, Lanjutkan
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
