@@ -48,6 +48,21 @@
           display: none !important;
         }
       }
+      /* Scrollbar halus untuk panel keranjang kasir */
+      .cart-scroll::-webkit-scrollbar {
+        width: 5px;
+      }
+      .cart-scroll::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 4px;
+      }
+      .cart-scroll::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+      }
+      .cart-scroll::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
     </style>
   </head>
   <body>
@@ -116,7 +131,7 @@
           </nav>
         </header>
 
-        <div v-if="halamanAktif === 'kasir'" class="grid grid-cols-1 lg:grid-cols-10 gap-6">
+        <div v-if="halamanAktif === 'kasir'" class="grid grid-cols-1 lg:grid-cols-10 gap-6 items-start">
           <section class="lg:col-span-7">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div class="bg-white rounded-2xl shadow p-4">
@@ -217,122 +232,153 @@
             </div>
           </section>
 
-          <aside class="lg:col-span-3 bg-white rounded-2xl shadow p-5 flex flex-col">
-            <h2 class="text-2xl font-bold text-slate-800 mb-4">Keranjang</h2>
-
-            <div class="flex-1 space-y-4 overflow-y-auto">
-              <div
-                v-for="item in keranjang"
-                :key="item.menu_id"
-                class="border-b border-slate-200 pb-3"
+          <aside class="lg:col-span-3 bg-white rounded-2xl shadow p-4 lg:p-5 flex flex-col lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] max-h-[calc(100vh-2rem)] overflow-hidden">
+            <!-- Header Keranjang (Pinned di atas) -->
+            <div class="flex items-center justify-between pb-3 border-b border-slate-200 flex-shrink-0">
+              <div class="flex items-center gap-2">
+                <h2 class="text-xl font-bold text-slate-800">Keranjang</h2>
+                <span v-if="keranjang.length > 0" class="text-xs bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full">
+                  {{ keranjang.reduce((acc, it) => acc + it.kuantitas, 0) }} item
+                </span>
+              </div>
+              <button
+                v-if="keranjang.length > 0"
+                type="button"
+                class="text-xs text-rose-500 hover:text-rose-700 font-semibold transition-colors"
+                @click="bersihkanKeranjang"
+                title="Kosongkan seluruh keranjang"
               >
-                <div class="flex justify-between items-start">
-                  <div>
-                    <p class="font-semibold text-slate-800">{{ item.nama }}</p>
-                    <p class="text-sm text-slate-500">{{ formatRupiah(item.harga) }}</p>
-                  </div>
-                  <p class="font-bold text-slate-800">{{ formatRupiah(item.subtotal) }}</p>
-                </div>
-                <div class="flex items-center gap-3 mt-3">
-                  <button class="w-10 h-10 rounded-full bg-slate-100 text-xl" @click="kurangiItem(item)">-</button>
-                  <span class="text-lg font-semibold">{{ item.kuantitas }}</span>
-                  <button class="w-10 h-10 rounded-full bg-slate-100 text-xl" @click="tambahKeKeranjangDenganId(item.menu_id)">+</button>
-                </div>
-              </div>
-
-              <div v-if="keranjang.length === 0" class="text-slate-400 text-center py-12">
-                Keranjang masih kosong.
-              </div>
+                Kosongkan
+              </button>
             </div>
 
-            <div class="pt-4 border-t border-slate-200 space-y-4">
-              <div>
-                <p class="text-sm font-semibold text-slate-500 mb-2">Pilih Meja</p>
-                <select
-                  v-model="mejaDipilih"
-                  class="w-full border border-slate-200 rounded-xl px-3 py-2"
+            <!-- Body Tengah (Scrollable) -->
+            <div class="flex-1 overflow-y-auto space-y-3 py-2.5 pr-1 min-h-0 cart-scroll">
+              <!-- Daftar Item Keranjang -->
+              <div class="space-y-2">
+                <div
+                  v-for="item in keranjang"
+                  :key="item.menu_id"
+                  class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 transition-all hover:border-slate-300"
                 >
-                  <option :value="null">Tanpa Meja</option>
-                  <option v-for="meja in daftarMeja" :key="meja.id" :value="meja.id">
-                    {{ meja.nama }}
-                  </option>
-                </select>
-                <p class="text-xs text-slate-400 mt-1">Gunakan jika pelanggan duduk di tempat.</p>
-              </div>
-              <div>
-                <p class="text-sm font-semibold text-slate-500 mb-2">Metode Pembayaran</p>
-                <div class="flex gap-2 flex-wrap">
-                  <button
-                    v-for="metode in daftarMetode"
-                    :key="metode"
-                    type="button"
-                    class="px-4 py-2 rounded-full text-sm font-semibold transition-all shadow-xs"
-                    :class="metodePembayaran === metode ? 'bg-emerald-500 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
-                    @click="metodePembayaran = metode"
-                  >
-                    {{ metode.toUpperCase() }}
-                  </button>
+                  <div class="flex justify-between items-start gap-2">
+                    <div class="min-w-0">
+                      <p class="font-bold text-slate-800 text-sm leading-tight truncate">{{ item.nama }}</p>
+                      <p class="text-xs text-slate-500 mt-0.5">{{ formatRupiah(item.harga) }}</p>
+                    </div>
+                    <p class="font-extrabold text-slate-900 text-sm whitespace-nowrap">{{ formatRupiah(item.subtotal) }}</p>
+                  </div>
+                  <div class="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-200/60">
+                    <span class="text-[11px] text-slate-400 font-medium">Qty:</span>
+                    <div class="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        class="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-100 flex items-center justify-center text-sm active:scale-95 transition-all"
+                        @click="kurangiItem(item)"
+                      >
+                        -
+                      </button>
+                      <span class="text-sm font-bold text-slate-800 min-w-5 text-center">{{ item.kuantitas }}</span>
+                      <button
+                        type="button"
+                        class="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-100 flex items-center justify-center text-sm active:scale-95 transition-all"
+                        @click="tambahKeKeranjangDenganId(item.menu_id)"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <p class="text-xs text-slate-400 mt-1">Pilih sesuai pembayaran pelanggan.</p>
+
+                <div v-if="keranjang.length === 0" class="text-slate-400 text-center py-6 text-sm">
+                  <p class="text-2xl mb-1">🛒</p>
+                  Keranjang masih kosong.
+                </div>
+              </div>
+
+              <!-- Opsi Transaksi: Meja & Metode Pembayaran -->
+              <div class="pt-2.5 border-t border-slate-200 space-y-2.5">
+                <div>
+                  <div class="flex justify-between items-center mb-1">
+                    <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pilih Meja</label>
+                    <span class="text-[10px] text-slate-400">Opsional</span>
+                  </div>
+                  <select
+                    v-model="mejaDipilih"
+                    class="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-xs bg-white font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                  >
+                    <option :value="null">Takeaway / Tanpa Meja</option>
+                    <option v-for="meja in daftarMeja" :key="meja.id" :value="meja.id">
+                      {{ meja.nama }}
+                    </option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Metode Pembayaran</label>
+                  <div class="grid grid-cols-3 gap-1.5">
+                    <button
+                      v-for="metode in daftarMetode"
+                      :key="metode"
+                      type="button"
+                      class="py-1.5 px-2 rounded-xl text-xs font-bold transition-all border text-center"
+                      :class="metodePembayaran === metode ? 'bg-emerald-500 text-white border-emerald-600 shadow-xs' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'"
+                      @click="metodePembayaran = metode"
+                    >
+                      {{ metode.toUpperCase() }}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <!-- FITUR 1: Pengaturan Mode Cetak Struk (Single vs Double) -->
-              <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
-                <div class="flex items-center justify-between mb-2">
-                  <div class="flex items-center gap-1.5">
-                    <span class="text-xs font-bold text-slate-700 uppercase tracking-wider">Mode Cetak Struk</span>
-                    <span class="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-medium">Tersimpan</span>
+              <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                <div class="flex items-center justify-between mb-1.5">
+                  <div class="flex items-center gap-1">
+                    <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Mode Cetak Struk</span>
+                    <span class="text-[9px] bg-slate-200 text-slate-600 px-1 py-0.2 rounded font-medium">Auto-save</span>
                   </div>
-                  <span class="text-xs font-bold" :class="modeCetak === 'double' ? 'text-amber-600' : 'text-slate-600'">
+                  <span class="text-[11px] font-bold" :class="modeCetak === 'double' ? 'text-amber-600' : 'text-slate-600'">
                     {{ modeCetak === 'double' ? '2 Lembar' : '1 Lembar' }}
                   </span>
                 </div>
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-2 gap-1.5">
                   <button
                     type="button"
-                    class="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all border"
+                    class="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all border"
                     :class="modeCetak === 'single'
-                      ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                      ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
                       : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'"
                     @click="setModeCetak('single')"
                   >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                    </svg>
-                    Single (1x)
+                    📄 Single (1x)
                   </button>
                   <button
                     type="button"
-                    class="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all border"
+                    class="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all border"
                     :class="modeCetak === 'double'
-                      ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                      ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
                       : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'"
                     @click="setModeCetak('double')"
                   >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path>
-                    </svg>
-                    Double (2x)
+                    📄📄 Double (2x)
                   </button>
                 </div>
-                <p class="text-[11px] text-slate-500 mt-2 leading-tight">
-                  {{ modeCetak === 'double' ? '🖨️ Cetak 2 rangkap: 1 lembar kasir/toko & 1 lembar pelanggan' : '🖨️ Cetak 1 lembar nota kasir standar' }}
-                </p>
               </div>
 
               <!-- FITUR 2 & 3: Panel Tunai, Tombol Pecahan Cepat, Kalkulasi Kembalian -->
-              <div v-if="metodePembayaran === 'tunai'" class="bg-amber-50/70 p-3.5 rounded-2xl border border-amber-200 space-y-3">
+              <div v-if="metodePembayaran === 'tunai'" class="bg-amber-50/70 p-3 rounded-xl border border-amber-200 space-y-2.5">
                 <div>
-                  <div class="flex items-center justify-between mb-1.5">
-                    <label class="text-xs font-bold text-slate-700 tracking-wide uppercase flex items-center gap-1.5">
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1">
                       <span>💵 Uang Diterima</span>
                     </label>
                     <div class="flex items-center gap-1">
                       <span class="text-[10px] text-slate-500 font-medium">Mode:</span>
                       <button
                         type="button"
-                        class="text-[10px] px-2 py-0.5 rounded-md font-bold transition-colors"
-                        :class="modeInputPecahan === 'set' ? 'bg-amber-500 text-white shadow-xs' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'"
+                        class="text-[10px] px-1.5 py-0.5 rounded font-bold transition-colors"
+                        :class="modeInputPecahan === 'set' ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'"
                         @click="modeInputPecahan = 'set'"
                         title="Klik pecahan langsung menggantikan nominal"
                       >
@@ -340,8 +386,8 @@
                       </button>
                       <button
                         type="button"
-                        class="text-[10px] px-2 py-0.5 rounded-md font-bold transition-colors"
-                        :class="modeInputPecahan === 'tambah' ? 'bg-amber-500 text-white shadow-xs' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'"
+                        class="text-[10px] px-1.5 py-0.5 rounded font-bold transition-colors"
+                        :class="modeInputPecahan === 'tambah' ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'"
                         @click="modeInputPecahan = 'tambah'"
                         title="Klik pecahan menambahkan (+) akumulasi uang"
                       >
@@ -352,27 +398,24 @@
 
                   <!-- Input Nominal Uang Diterima & Tombol Reset -->
                   <div class="relative flex items-center">
-                    <span class="absolute left-3.5 text-slate-400 font-extrabold text-base select-none">Rp</span>
+                    <span class="absolute left-3 text-slate-400 font-extrabold text-sm select-none">Rp</span>
                     <input
                       type="text"
                       inputmode="numeric"
-                      class="w-full pl-11 pr-20 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-800 text-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 shadow-sm transition-all"
+                      class="w-full pl-9 pr-16 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-800 text-base focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 shadow-2xs transition-all"
                       :value="uangDiterimaInput"
                       @input="onInputUangDiterima"
                       placeholder="0"
                     />
-                    <div class="absolute right-2 flex items-center">
+                    <div class="absolute right-1.5 flex items-center">
                       <button
                         v-if="uangDiterima > 0"
                         type="button"
-                        class="px-2.5 py-1 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors flex items-center gap-1 border border-rose-200 shadow-xs"
+                        class="px-2 py-0.5 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded transition-colors flex items-center gap-0.5 border border-rose-200"
                         @click="resetUangDiterima"
                         title="Hapus / Reset nominal uang"
                       >
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                        Reset
+                        ✕ Reset
                       </button>
                     </div>
                   </div>
@@ -380,21 +423,21 @@
 
                 <!-- Tombol Angka Cepat Pecahan Rupiah -->
                 <div>
-                  <div class="flex justify-between items-center mb-1.5">
-                    <span class="text-[11px] font-bold text-slate-600">Pecahan Cepat Rupiah:</span>
-                    <span class="text-[10px] text-amber-800 bg-amber-200/80 px-1.5 py-0.5 rounded font-semibold">
-                      {{ modeInputPecahan === 'tambah' ? '(+ Akumulasi)' : '(Set Nominal)' }}
+                  <div class="flex justify-between items-center mb-1">
+                    <span class="text-[10px] font-bold text-slate-600">Pecahan Cepat:</span>
+                    <span class="text-[9px] text-amber-800 bg-amber-200/80 px-1 py-0.2 rounded font-semibold">
+                      {{ modeInputPecahan === 'tambah' ? '(+ Akumulasi)' : '(Set Nilai)' }}
                     </span>
                   </div>
-                  <div class="grid grid-cols-4 gap-1.5">
+                  <div class="grid grid-cols-4 gap-1">
                     <button
                       v-for="p in pecahanRupiah"
                       :key="p.nilai"
                       type="button"
-                      class="py-2 px-1 text-xs font-bold rounded-xl transition-all border text-center shadow-xs active:scale-95"
+                      class="py-1.5 px-0.5 text-[11px] font-bold rounded-lg transition-all border text-center shadow-2xs active:scale-95"
                       :class="uangDiterima === p.nilai && modeInputPecahan === 'set'
-                        ? 'bg-amber-500 text-white border-amber-600 shadow'
-                        : 'bg-white text-slate-700 border-slate-200 hover:bg-amber-100 hover:border-amber-400'"
+                        ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-amber-100 hover:border-amber-300'"
                       @click="klikPecahan(p.nilai)"
                     >
                       {{ p.label }}
@@ -403,10 +446,10 @@
                     <!-- Tombol Uang Pas -->
                     <button
                       type="button"
-                      class="py-2 px-1 text-xs font-black rounded-xl transition-all border text-center shadow-xs active:scale-95 flex items-center justify-center gap-0.5"
+                      class="py-1.5 px-0.5 text-[11px] font-black rounded-lg transition-all border text-center shadow-2xs active:scale-95 flex items-center justify-center"
                       :class="(uangDiterima === totalHarga && totalHarga > 0)
-                        ? 'bg-emerald-600 text-white border-emerald-700 shadow'
-                        : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 hover:border-emerald-400'"
+                        ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
+                        : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'"
                       :disabled="totalHarga <= 0"
                       @click="setUangPas"
                       title="Uang Pas persis total tagihan"
@@ -419,45 +462,31 @@
                 <!-- Kalkulasi Kembalian Otomatis & Status Indikator -->
                 <div class="pt-2 border-t border-amber-200/70">
                   <!-- Belum isi uang -->
-                  <div v-if="uangDiterima <= 0" class="flex items-center justify-between text-xs text-slate-500 bg-white/80 px-3 py-2 rounded-xl border border-dashed border-slate-300">
-                    <span class="flex items-center gap-1.5 font-medium">
-                      <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                      </svg>
+                  <div v-if="uangDiterima <= 0" class="flex items-center justify-between text-[11px] text-slate-500 bg-white/80 px-2.5 py-1.5 rounded-lg border border-dashed border-slate-300">
+                    <span class="flex items-center gap-1 font-medium">
                       Status:
                     </span>
-                    <span class="font-bold text-amber-700">Pilih pecahan atau ketik uang</span>
+                    <span class="font-bold text-amber-700">Pilih pecahan / ketik uang</span>
                   </div>
 
                   <!-- Kurang Bayar (uangDiterima < totalHarga) -->
-                  <div v-else-if="uangDiterima < totalHarga" class="flex items-center justify-between bg-rose-50 border border-rose-300 text-rose-700 px-3 py-2.5 rounded-xl shadow-xs">
-                    <div class="flex items-center gap-2">
-                      <svg class="w-5 h-5 text-rose-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                      </svg>
-                      <div>
-                        <p class="text-[10px] text-rose-500 uppercase font-black tracking-wider leading-none">Kurang Bayar</p>
-                        <p class="text-xs text-rose-700 font-semibold mt-0.5">Uang tunai belum cukup</p>
-                      </div>
+                  <div v-else-if="uangDiterima < totalHarga" class="flex items-center justify-between bg-rose-50 border border-rose-300 text-rose-700 px-2.5 py-1.5 rounded-lg">
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-[10px] text-rose-500 uppercase font-black tracking-wider">Kurang Bayar</span>
                     </div>
-                    <span class="text-base font-black text-rose-700">{{ formatRupiah(kurangBayar) }}</span>
+                    <span class="text-sm font-black text-rose-700">{{ formatRupiah(kurangBayar) }}</span>
                   </div>
 
                   <!-- Kembalian Cukup (uangDiterima >= totalHarga) -->
-                  <div v-else class="flex items-center justify-between bg-emerald-50 border border-emerald-300 text-emerald-800 px-3 py-2.5 rounded-xl shadow-xs">
-                    <div class="flex items-center gap-2">
-                      <svg class="w-5 h-5 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                      </svg>
-                      <div>
-                        <p class="text-[10px] text-emerald-600 uppercase font-black tracking-wider leading-none">Kembalian Pelanggan</p>
-                        <p class="text-base font-black text-emerald-950 mt-0.5">{{ formatRupiah(kembalian) }}</p>
-                      </div>
+                  <div v-else class="flex items-center justify-between bg-emerald-50 border border-emerald-300 text-emerald-800 px-2.5 py-1.5 rounded-lg">
+                    <div>
+                      <p class="text-[9px] text-emerald-600 uppercase font-black tracking-wider leading-none">Kembalian</p>
+                      <p class="text-sm font-black text-emerald-950 mt-0.5">{{ formatRupiah(kembalian) }}</p>
                     </div>
-                    <span v-if="kembalian === 0" class="text-xs font-black bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full border border-emerald-200">
+                    <span v-if="kembalian === 0" class="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
                       Uang Pas
                     </span>
-                    <span v-else class="text-xs font-black bg-emerald-200 text-emerald-900 px-2.5 py-1 rounded-full border border-emerald-300">
+                    <span v-else class="text-[10px] font-black bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full border border-emerald-300">
                       Kembalian Siap
                     </span>
                   </div>
@@ -465,30 +494,32 @@
               </div>
 
               <!-- Pembayaran Non-Tunai Information -->
-              <div v-else class="bg-blue-50 p-3 rounded-2xl border border-blue-200 flex items-center justify-between text-xs text-blue-800">
-                <span class="font-bold flex items-center gap-1.5">
-                  <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
-                  Metode Non-Tunai ({{ metodePembayaran.toUpperCase() }})
+              <div v-else class="bg-blue-50 p-2.5 rounded-xl border border-blue-200 flex items-center justify-between text-xs text-blue-800">
+                <span class="font-bold flex items-center gap-1">
+                  Non-Tunai ({{ metodePembayaran.toUpperCase() }})
                 </span>
-                <span class="text-[11px] bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full font-bold">
+                <span class="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-bold">
                   Nominal Pas
                 </span>
               </div>
+            </div>
 
+            <!-- FOOTER PINNED DI BAWAH (Selalu terlihat tanpa perlu scroll!) -->
+            <div class="pt-3 border-t border-slate-200 bg-white flex-shrink-0 space-y-2 mt-auto">
               <!-- Ringkasan Total Tagihan -->
-              <div class="flex justify-between items-center text-lg font-semibold pt-1">
-                <span class="text-slate-700">Total Tagihan</span>
-                <span class="text-2xl font-black text-slate-900">{{ formatRupiah(totalHarga) }}</span>
+              <div class="flex justify-between items-center">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Tagihan</span>
+                <span class="text-xl font-black text-slate-900">{{ formatRupiah(totalHarga) }}</span>
               </div>
 
               <!-- Tombol Proses Transaksi / Bayar dengan Validasi -->
               <div>
                 <button
                   type="button"
-                  class="w-full text-white text-xl font-bold py-3.5 px-4 rounded-2xl transition-all shadow-md flex items-center justify-center gap-2 select-none"
+                  class="w-full text-white text-base font-extrabold py-3.5 px-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 select-none active:scale-[0.99]"
                   :class="!apakahUangCukup || sedangMemproses
                     ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
-                    : (metodePembayaran === 'tunai' ? 'bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] shadow-emerald-200' : 'bg-amber-500 hover:bg-amber-600 active:scale-[0.99] shadow-amber-200')"
+                    : (metodePembayaran === 'tunai' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200')"
                   :disabled="!apakahUangCukup || sedangMemproses"
                   @click="prosesCheckout"
                 >
@@ -498,18 +529,18 @@
                     {{ uangDiterima === 0 ? 'MASUKKAN UANG' : 'UANG BELUM CUKUP' }}
                   </span>
                   <span v-else class="flex items-center gap-2">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
                     </svg>
                     <span>BAYAR & CETAK</span>
-                    <span class="text-xs bg-black/20 px-2 py-0.5 rounded-full font-bold uppercase">
+                    <span class="text-[10px] bg-black/20 px-1.5 py-0.5 rounded font-bold uppercase">
                       {{ modeCetak }}
                     </span>
                   </span>
                 </button>
 
-                <p v-if="metodePembayaran === 'tunai' && uangDiterima < totalHarga && totalHarga > 0" class="text-center text-xs text-rose-600 font-semibold mt-1.5">
-                  ⚠️ Tombol bayar dinonaktifkan sampai uang tunai mencukupi tagihan.
+                <p v-if="metodePembayaran === 'tunai' && uangDiterima < totalHarga && totalHarga > 0" class="text-center text-[11px] text-rose-600 font-semibold mt-1">
+                  ⚠️ Kurang {{ formatRupiah(kurangBayar) }} untuk memproses.
                 </p>
               </div>
             </div>
@@ -519,60 +550,157 @@
         <section v-if="halamanAktif === 'transaksi'" class="bg-white rounded-2xl shadow p-6">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="lg:col-span-2">
-              <h2 class="text-2xl font-bold text-slate-800 mb-4">Riwayat Transaksi</h2>
-                <div class="bg-slate-50 rounded-2xl p-4 mb-4">
-                  <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <!-- Header Riwayat Transaksi & Tombol Aksi Hapus Global -->
+              <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <div>
+                  <h2 class="text-2xl font-bold text-slate-800">Riwayat Transaksi</h2>
+                  <p class="text-xs text-slate-500">Kelola riwayat penjualan, cetak ulang struk, dan arsip data kasir.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <!-- Tombol Hapus Berdasarkan Tanggal -->
+                  <button
+                    type="button"
+                    class="px-3.5 py-2 rounded-xl text-xs font-bold border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
+                    @click="bukaModalHapusTanggal"
+                  >
+                    <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    <span>Hapus Berdasarkan Tanggal</span>
+                  </button>
+
+                  <!-- Tombol Hapus Seluruh Riwayat (Danger Style Menonjol) -->
+                  <button
+                    type="button"
+                    class="px-3.5 py-2 rounded-xl text-xs font-extrabold bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white shadow-sm shadow-rose-200 flex items-center gap-1.5 transition-all active:scale-95 border border-red-700 cursor-pointer"
+                    @click="mulaiHapusSemua"
+                  >
+                    <svg class="w-4 h-4 text-rose-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                    <span>Hapus Seluruh Riwayat</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Filter Pencarian Tanggal -->
+              <div class="bg-slate-50 rounded-2xl p-4 mb-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label class="text-sm font-semibold text-slate-600">Filter Tanggal Tampil</label>
+                    <input
+                      v-model="tanggalFilterTransaksi"
+                      type="date"
+                      class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2 bg-white text-sm"
+                    />
+                  </div>
+                  <div class="flex items-end gap-2 md:col-span-2">
+                    <button
+                      class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors cursor-pointer"
+                      @click="ambilTransaksi"
+                    >
+                      Terapkan
+                    </button>
+                    <button
+                      class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors cursor-pointer"
+                      @click="filterTransaksiHariIni"
+                    >
+                      Hari Ini
+                    </button>
+                    <button
+                      class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold px-4 py-2 rounded-xl text-sm transition-colors cursor-pointer"
+                      @click="resetFilterTransaksi"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Toolbar Multi-Select & Tombol Hapus Yang Dipilih -->
+              <div class="bg-slate-50 border border-slate-200/80 rounded-xl px-4 py-3 mb-3 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                  <label class="flex items-center gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      class="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer"
+                      :checked="apakahSemuaDipilih"
+                      @change="togglePilihSemua"
+                      :disabled="transaksiList.length === 0"
+                    />
+                    <span class="text-sm font-bold text-slate-700">Pilih Semua</span>
+                  </label>
+                  <span v-if="transaksiList.length > 0" class="text-xs px-2.5 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600 font-medium">
+                    {{ jumlahTransaksiDipilih }} dari {{ transaksiList.length }} transaksi dipilih
+                  </span>
+                </div>
+
+                <div>
+                  <!-- Tombol Dinamis Hapus Yang Dipilih -->
+                  <button
+                    type="button"
+                    class="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 select-none"
+                    :class="jumlahTransaksiDipilih > 0
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-sm shadow-rose-200 cursor-pointer active:scale-95'
+                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'"
+                    :disabled="jumlahTransaksiDipilih === 0"
+                    @click="mulaiHapusTerpilih"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                    <span>Hapus Yang Dipilih ({{ jumlahTransaksiDipilih }})</span>
+                    <span v-if="jumlahTransaksiDipilih > 0" class="font-mono text-[11px] bg-rose-700/70 px-1.5 py-0.5 rounded">
+                      {{ formatRupiah(totalNominalDipilih) }}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Daftar Baris Transaksi Dengan Checkbox -->
+              <div class="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
+                <div
+                  v-for="trx in transaksiList"
+                  :key="trx.id"
+                  class="w-full flex items-center gap-3 border rounded-xl p-3.5 transition-all select-none cursor-pointer"
+                  :class="transaksiDipilih.includes(trx.id)
+                    ? 'bg-amber-50/80 border-amber-300 ring-1 ring-amber-300 shadow-xs'
+                    : (transaksiDetail?.transaksi?.id === trx.id ? 'bg-slate-100 border-slate-400' : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300')"
+                  @click="lihatDetailTransaksi(trx.id)"
+                >
+                  <!-- Checkbox Baris Item (Click Stop agar tidak memicu click detail ganda) -->
+                  <div class="p-1" @click.stop>
+                    <input
+                      type="checkbox"
+                      class="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer"
+                      :checked="transaksiDipilih.includes(trx.id)"
+                      @change="togglePilihTransaksi(trx.id)"
+                    />
+                  </div>
+
+                  <!-- Konten Info Transaksi -->
+                  <div class="flex-1 flex justify-between items-center">
                     <div>
-                      <label class="text-sm font-semibold text-slate-600">Filter Tanggal</label>
-                      <input
-                        v-model="tanggalFilterTransaksi"
-                        type="date"
-                        class="mt-2 w-full border border-slate-200 rounded-xl px-3 py-2"
-                      />
+                      <div class="flex items-center gap-2">
+                        <span class="font-bold text-slate-800 text-sm">#{{ trx.id }}</span>
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">
+                          {{ trx.meja_nama || 'Takeaway / Tanpa Meja' }}
+                        </span>
+                      </div>
+                      <p class="text-xs text-slate-400 mt-0.5">{{ trx.tanggal_waktu }}</p>
                     </div>
-                    <div class="flex items-end gap-2">
-                      <button
-                        class="w-full bg-emerald-500 text-white font-semibold px-4 py-2 rounded-xl"
-                        @click="ambilTransaksi"
-                      >
-                        Terapkan
-                      </button>
-                      <button
-                        class="w-full bg-amber-500 text-white font-semibold px-4 py-2 rounded-xl"
-                        @click="filterTransaksiHariIni"
-                      >
-                        Hari Ini
-                      </button>
-                      <button
-                        class="w-full bg-slate-200 text-slate-700 font-semibold px-4 py-2 rounded-xl"
-                        @click="resetFilterTransaksi"
-                      >
-                        Reset
-                      </button>
+                    <div class="text-right">
+                      <p class="font-bold text-slate-800 text-sm">{{ formatRupiah(trx.total_harga) }}</p>
+                      <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">
+                        {{ trx.metode_pembayaran }}
+                      </span>
                     </div>
                   </div>
                 </div>
-              <div class="space-y-3 max-h-[480px] overflow-y-auto">
-                <button
-                  v-for="trx in transaksiList"
-                  :key="trx.id"
-                  class="w-full text-left border border-slate-200 rounded-xl p-4 hover:bg-slate-50"
-                  @click="lihatDetailTransaksi(trx.id)"
-                >
-                  <div class="flex justify-between">
-                    <div>
-                      <p class="font-semibold">Transaksi #{{ trx.id }}</p>
-                      <p class="text-sm text-slate-500">{{ trx.tanggal_waktu }}</p>
-                      <p class="text-sm text-slate-500">{{ trx.meja_nama || 'Tanpa Meja' }}</p>
-                    </div>
-                    <div class="text-right">
-                      <p class="font-bold">{{ formatRupiah(trx.total_harga) }}</p>
-                      <p class="text-xs uppercase text-slate-500">{{ trx.metode_pembayaran }}</p>
-                    </div>
-                  </div>
-                </button>
-                <div v-if="transaksiList.length === 0" class="text-slate-400 text-center py-6">
-                  Belum ada transaksi.
+
+                <div v-if="transaksiList.length === 0" class="text-slate-400 text-center py-10 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                  <p class="text-sm font-semibold">Belum ada riwayat transaksi</p>
+                  <p class="text-xs text-slate-400 mt-1">Transaksi checkout baru akan otomatis muncul di sini</p>
                 </div>
               </div>
             </div>
@@ -1237,6 +1365,308 @@
                 @click="tutupModalStruk"
               >
                 Tutup & Transaksi Baru
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL HAPUS BERDASARKAN TANGGAL -->
+      <div
+        v-if="modalHapusTanggal.tampil"
+        class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto"
+      >
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 my-8">
+          <!-- Header Modal -->
+          <div class="bg-gradient-to-r from-amber-500 to-orange-600 p-5 text-white flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl">
+                📅
+              </div>
+              <div>
+                <h3 class="text-lg font-black leading-tight">Hapus Berdasarkan Tanggal</h3>
+                <p class="text-xs text-amber-100">Pilih tanggal tunggal atau rentang tanggal tertentu</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
+              @click="tutupModalHapusTanggal"
+            >
+              ✕
+            </button>
+          </div>
+
+          <!-- Body Modal -->
+          <div class="p-6 space-y-4">
+            <!-- Pilihan Mode Rentang Tanggal -->
+            <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl">
+              <button
+                type="button"
+                class="py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                :class="modalHapusTanggal.mode === 'single'
+                  ? 'bg-white text-slate-800 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-800'"
+                @click="modalHapusTanggal.mode = 'single'; hitungPreviewHapusTanggal()"
+              >
+                Tanggal Tunggal (1 Hari)
+              </button>
+              <button
+                type="button"
+                class="py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                :class="modalHapusTanggal.mode === 'range'
+                  ? 'bg-white text-slate-800 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-800'"
+                @click="modalHapusTanggal.mode = 'range'; hitungPreviewHapusTanggal()"
+              >
+                Rentang Tanggal (Mulai - Selesai)
+              </button>
+            </div>
+
+            <!-- Input Tanggal Tunggal -->
+            <div v-if="modalHapusTanggal.mode === 'single'" class="space-y-1">
+              <label class="text-xs font-bold text-slate-600">Pilih Tanggal Transaksi</label>
+              <input
+                v-model="modalHapusTanggal.tanggal"
+                type="date"
+                class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 bg-slate-50 text-slate-800 font-medium text-sm focus:bg-white focus:ring-2 focus:ring-amber-500"
+                @change="hitungPreviewHapusTanggal"
+              />
+            </div>
+
+            <!-- Input Rentang Tanggal -->
+            <div v-if="modalHapusTanggal.mode === 'range'" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="space-y-1">
+                <label class="text-xs font-bold text-slate-600">Tanggal Mulai</label>
+                <input
+                  v-model="modalHapusTanggal.tanggalMulai"
+                  type="date"
+                  class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 bg-slate-50 text-slate-800 font-medium text-sm focus:bg-white focus:ring-2 focus:ring-amber-500"
+                  @change="hitungPreviewHapusTanggal"
+                />
+              </div>
+              <div class="space-y-1">
+                <label class="text-xs font-bold text-slate-600">Tanggal Selesai</label>
+                <input
+                  v-model="modalHapusTanggal.tanggalSelesai"
+                  type="date"
+                  class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 bg-slate-50 text-slate-800 font-medium text-sm focus:bg-white focus:ring-2 focus:ring-amber-500"
+                  @change="hitungPreviewHapusTanggal"
+                />
+              </div>
+            </div>
+
+            <!-- Kotak Kalkulasi Otomatis (Live Calculation) -->
+            <div class="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 space-y-2">
+              <div class="flex items-center justify-between text-xs font-bold text-amber-800">
+                <span>Kalkulasi Otomatis Terdeteksi</span>
+                <span v-if="modalHapusTanggal.loading" class="animate-pulse text-amber-600">Menghitung...</span>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3 pt-1">
+                <div class="bg-white rounded-xl p-3 border border-amber-100 shadow-2xs">
+                  <p class="text-[11px] text-slate-500">Jumlah Transaksi</p>
+                  <p class="text-lg font-black text-slate-800">{{ modalHapusTanggal.totalTransaksi }} Transaksi</p>
+                </div>
+                <div class="bg-white rounded-xl p-3 border border-amber-100 shadow-2xs">
+                  <p class="text-[11px] text-slate-500">Total Nominal</p>
+                  <p class="text-lg font-black text-emerald-700">{{ formatRupiah(modalHapusTanggal.totalNominal) }}</p>
+                </div>
+              </div>
+
+              <div v-if="modalHapusTanggal.totalTransaksi === 0 && !modalHapusTanggal.loading" class="pt-1 text-center">
+                <p class="text-xs text-rose-600 font-medium">⚠️ Tidak ada transaksi yang ditemukan pada tanggal ini.</p>
+              </div>
+            </div>
+
+            <!-- Tombol Aksi Modal Tanggal -->
+            <div class="flex gap-2 pt-2">
+              <button
+                type="button"
+                class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-4 rounded-xl transition-colors text-sm cursor-pointer"
+                @click="tutupModalHapusTanggal"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                class="flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-1.5"
+                :class="modalHapusTanggal.totalTransaksi > 0 && !modalHapusTanggal.loading
+                  ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-200 cursor-pointer active:scale-98'
+                  : 'bg-slate-200 text-slate-400 cursor-not-allowed'"
+                :disabled="modalHapusTanggal.totalTransaksi === 0 || modalHapusTanggal.loading"
+                @click="mulaiHapusBerdasarkanTanggal"
+              >
+                <span>Lanjutkan ke Konfirmasi</span>
+                <span>&rarr;</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL ALUR KONFIRMASI 2 TAHAP (DOUBLE CONFIRMATION) -->
+      <div
+        v-if="modalKonfirmasiHapus.tampil"
+        class="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto"
+      >
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 my-8">
+          <!-- Header Modal (Berubah Visual Sesuai Tahap) -->
+          <div
+            class="p-5 text-white flex items-center justify-between"
+            :class="modalKonfirmasiHapus.tahap === 1
+              ? 'bg-gradient-to-r from-amber-600 to-rose-600'
+              : 'bg-gradient-to-r from-rose-600 to-red-700'"
+          >
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl">
+                {{ modalKonfirmasiHapus.tahap === 1 ? '⚠️' : '🚨' }}
+              </div>
+              <div>
+                <span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/20 mb-0.5">
+                  Tahap {{ modalKonfirmasiHapus.tahap }} dari 2: {{ modalKonfirmasiHapus.tahap === 1 ? 'Peringatan Awal' : 'Verifikasi Akhir' }}
+                </span>
+                <h3 class="text-base font-black leading-tight">{{ modalKonfirmasiHapus.judul }}</h3>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
+              @click="tutupModalKonfirmasiHapus"
+            >
+              ✕
+            </button>
+          </div>
+
+          <!-- KONTEN TAHAP 1: RINGKASAN DATA & PERINGATAN TEGAS -->
+          <div v-if="modalKonfirmasiHapus.tahap === 1" class="p-6 space-y-4">
+            <p class="text-sm text-slate-600 leading-relaxed">
+              {{ modalKonfirmasiHapus.deskripsi }}
+            </p>
+
+            <!-- Ringkasan Data yang Akan Dihapus -->
+            <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-2 text-xs">
+              <div class="flex justify-between py-1 border-b border-slate-200/60">
+                <span class="text-slate-500 font-medium">Kategori Aksi:</span>
+                <span class="font-bold text-slate-800 uppercase tracking-wide">
+                  {{ modalKonfirmasiHapus.tipe === 'terpilih' ? 'Multi-Select (Spesifik)' : (modalKonfirmasiHapus.tipe === 'tanggal' ? 'Filter Tanggal' : 'Seluruh Riwayat') }}
+                </span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-slate-200/60">
+                <span class="text-slate-500 font-medium">Cakupan Data:</span>
+                <span class="font-bold text-slate-800 text-right">{{ modalKonfirmasiHapus.infoTanggal }}</span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-slate-200/60">
+                <span class="text-slate-500 font-medium">Jumlah Transaksi:</span>
+                <span class="font-black text-rose-600 text-sm">{{ modalKonfirmasiHapus.jumlahTransaksi }} Transaksi</span>
+              </div>
+              <div class="flex justify-between py-1">
+                <span class="text-slate-500 font-medium">Total Nilai Transaksi:</span>
+                <span class="font-black text-emerald-700 text-sm">{{ formatRupiah(modalKonfirmasiHapus.totalNominal) }}</span>
+              </div>
+            </div>
+
+            <!-- Peringatan Tegas Bahwa Data Tidak Dapat Dikembalikan -->
+            <div class="bg-rose-50 border-l-4 border-rose-500 p-3.5 rounded-xl space-y-1">
+              <p class="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-rose-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                </svg>
+                PERINGATAN: DATA TIDAK DAPAT DIKEMBALIKAN
+              </p>
+              <p class="text-[11px] text-rose-700 leading-relaxed">
+                Data riwayat transaksi dan rincian item belanja akan dihapus secara permanen dari database lokal. Pastikan Anda telah mengunduh laporan jika masih memerlukannya.
+              </p>
+            </div>
+
+            <!-- Tombol Aksi Tahap 1 -->
+            <div class="flex gap-2 pt-2">
+              <button
+                type="button"
+                class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-4 rounded-xl transition-colors text-sm cursor-pointer"
+                @click="tutupModalKonfirmasiHapus"
+              >
+                Batalkan
+              </button>
+              <button
+                type="button"
+                class="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-xl shadow-md shadow-amber-200 transition-all text-sm flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
+                @click="lanjutKeTahap2"
+              >
+                <span>Lanjutkan ke Konfirmasi Terakhir</span>
+                <span>&rarr;</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- KONTEN TAHAP 2: VERIFIKASI AKHIR & KATA KUNCI (UNTUK HAPUS SEMUA) -->
+          <div v-if="modalKonfirmasiHapus.tahap === 2" class="p-6 space-y-4">
+            <div class="text-center py-2">
+              <div class="w-14 h-14 rounded-full bg-rose-100 text-rose-600 mx-auto flex items-center justify-center text-2xl mb-2">
+                🗑️
+              </div>
+              <h4 class="text-base font-bold text-slate-800">Konfirmasi Final Penghapusan</h4>
+              <p class="text-xs text-slate-500 mt-1">
+                Apakah Anda benar-benar yakin ingin menghapus permanen {{ modalKonfirmasiHapus.jumlahTransaksi }} data transaksi ini sekarang?
+              </p>
+            </div>
+
+            <!-- Khusus Mode "Hapus Seluruh Riwayat": Wajib Ketik Kata Kunci HAPUS -->
+            <div v-if="modalKonfirmasiHapus.tipe === 'semua'" class="space-y-2 bg-rose-50/80 border border-rose-200 rounded-2xl p-4">
+              <label class="block text-xs font-bold text-rose-800 text-center">
+                Ketik kata kunci verifikasi di bawah ini:
+              </label>
+              <p class="text-[11px] text-slate-600 text-center">
+                Ketik tepat <span class="font-mono font-black text-rose-600 bg-rose-100 px-1.5 py-0.5 rounded">HAPUS</span> (huruf kapital) untuk membuka tombol eksekusi:
+              </p>
+              <input
+                v-model="modalKonfirmasiHapus.teksVerifikasiInput"
+                type="text"
+                autocomplete="off"
+                placeholder="Ketik HAPUS di sini..."
+                class="w-full text-center tracking-widest font-mono font-extrabold text-base uppercase py-2.5 px-4 rounded-xl border-2 transition-all focus:outline-none"
+                :class="apakahTahap2Valid
+                  ? 'border-emerald-500 bg-emerald-50/50 text-emerald-800 ring-2 ring-emerald-200'
+                  : 'border-rose-300 bg-white text-slate-800 focus:border-rose-500 focus:ring-2 focus:ring-rose-200'"
+              />
+              <p v-if="apakahTahap2Valid" class="text-[11px] font-bold text-emerald-700 text-center">
+                ✓ Kata kunci sesuai. Anda dapat melanjutkan eksekusi final.
+              </p>
+            </div>
+
+            <!-- Informasi Konfirmasi Tambahan untuk Mode Non-Semua -->
+            <div v-else class="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs text-slate-600 space-y-1">
+              <div class="flex justify-between">
+                <span>Target Hapus:</span>
+                <span class="font-bold text-slate-800">{{ modalKonfirmasiHapus.jumlahTransaksi }} transaksi ({{ formatRupiah(modalKonfirmasiHapus.totalNominal) }})</span>
+              </div>
+              <p class="text-[11px] text-slate-500">Klik tombol di bawah ini untuk mengeksekusi penghapusan.</p>
+            </div>
+
+            <!-- Tombol Aksi Tahap 2 -->
+            <div class="space-y-2 pt-2">
+              <button
+                type="button"
+                class="w-full py-3.5 px-4 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2 select-none"
+                :class="apakahTahap2Valid && !modalKonfirmasiHapus.sedangMenghapus
+                  ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-200 cursor-pointer active:scale-98'
+                  : 'bg-slate-200 text-slate-400 cursor-not-allowed'"
+                :disabled="!apakahTahap2Valid || modalKonfirmasiHapus.sedangMenghapus"
+                @click="eksekusiHapusFinal"
+              >
+                <svg v-if="modalKonfirmasiHapus.sedangMenghapus" class="animate-spin w-4 h-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                </svg>
+                <span>{{ modalKonfirmasiHapus.sedangMenghapus ? 'Sedang Menghapus Data...' : 'Ya, Hapus Permanen Data Ini' }}</span>
+              </button>
+
+              <button
+                type="button"
+                class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition-colors text-xs cursor-pointer"
+                @click="kembaliKeTahap1"
+              >
+                &larr; Kembali ke Tahap 1
               </button>
             </div>
           </div>

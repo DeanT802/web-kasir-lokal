@@ -1,23 +1,70 @@
-import { createApp, ref, computed, onMounted, watch } from "https://unpkg.com/vue@3/dist/vue.esm-browser.js";
+import { createApp, ref, computed, onMounted, watch } from "/vue.esm-browser.js";
 
 createApp({
   setup() {
     const daftarMenu = ref([]);
+    const stokLogs = ref([]);
     const kategoriAktif = ref("semua");
     const halamanAktif = ref("kasir");
     const keranjang = ref([]);
     const toast = ref({ tampil: false, pesan: "" });
     const sedangMemproses = ref(false);
-  const kataKunciMenu = ref("");
-  const filterStokRendah = ref(false);
-  const urutkanMenu = ref("nama");
+    const kataKunciMenu = ref("");
+    const filterStokRendah = ref(false);
+    const urutkanMenu = ref("nama");
     const metodePembayaran = ref("tunai");
     const daftarMeja = ref([]);
     const mejaDipilih = ref(null);
     const transaksiList = ref([]);
     const transaksiDetail = ref(null);
-  const tanggalFilterTransaksi = ref("");
-    const stokLogs = ref([]);
+    const tanggalFilterTransaksi = ref("");
+
+    // State Manajemen Penghapusan Riwayat Transaksi
+    const transaksiDipilih = ref([]); // Array berisi ID transaksi yang dicentang
+    const modalHapusTanggal = ref({
+      tampil: false,
+      mode: "single", // 'single' atau 'range'
+      tanggal: "",
+      tanggalMulai: "",
+      tanggalSelesai: "",
+      loading: false,
+      totalTransaksi: 0,
+      totalNominal: 0,
+    });
+    const modalKonfirmasiHapus = ref({
+      tampil: false,
+      tahap: 1, // 1: Peringatan Awal & Ringkasan, 2: Verifikasi Akhir
+      tipe: "terpilih", // 'terpilih' | 'tanggal' | 'semua'
+      judul: "",
+      deskripsi: "",
+      jumlahTransaksi: 0,
+      totalNominal: 0,
+      infoTanggal: "",
+      teksVerifikasiInput: "",
+      kataKunciDibutuhkan: "HAPUS",
+      payloadHapus: null,
+      sedangMenghapus: false,
+    });
+
+    const apakahSemuaDipilih = computed(() => {
+      if (transaksiList.value.length === 0) return false;
+      return transaksiList.value.every((trx) => transaksiDipilih.value.includes(trx.id));
+    });
+
+    const jumlahTransaksiDipilih = computed(() => transaksiDipilih.value.length);
+
+    const totalNominalDipilih = computed(() => {
+      return transaksiList.value
+        .filter((trx) => transaksiDipilih.value.includes(trx.id))
+        .reduce((sum, trx) => sum + (trx.total_harga || 0), 0);
+    });
+
+    const apakahTahap2Valid = computed(() => {
+      if (modalKonfirmasiHapus.value.tipe === "semua") {
+        return modalKonfirmasiHapus.value.teksVerifikasiInput.trim().toUpperCase() === "HAPUS";
+      }
+      return true;
+    });
     const perubahanStok = ref({});
     const catatanStok = ref({});
     const namaMejaBaru = ref("");
@@ -26,9 +73,9 @@ createApp({
     const saldoAkhir = ref(0);
     const catatanShift = ref("");
     const rekapHarian = ref([]);
-  const rekapItemHarian = ref([]);
-  const tanggalRekapItem = ref("");
-  const ringkasanHariIni = ref({ pemasukan: 0, total_transaksi: 0, total_item: 0 });
+    const rekapItemHarian = ref([]);
+    const tanggalRekapItem = ref("");
+    const ringkasanHariIni = ref({ pemasukan: 0, total_transaksi: 0, total_item: 0 });
     const menuBaru = ref({
       nama: "",
       kategori: "kopi",
@@ -43,10 +90,10 @@ createApp({
     const menuEdit = ref(null);
     const modalKonfirmasi = ref({ tampil: false, pesan: "", aksi: null });
     const dukungWebp = ref(false);
-  const tampilkanNonaktif = ref(false);
+    const tampilkanNonaktif = ref(false);
 
     const daftarKategori = computed(() => ["semua", "kopi", "non-kopi", "snack"]);
-  const daftarMetode = computed(() => ["tunai", "qris", "debit"]);
+    const daftarMetode = computed(() => ["tunai", "qris", "debit"]);
 
     const menuTersaring = computed(() => {
       const kataKunci = kataKunciMenu.value.trim().toLowerCase();
@@ -411,6 +458,9 @@ createApp({
         .then((res) => res.json())
         .then((data) => {
           transaksiList.value = data;
+          // Sinkronkan transaksiDipilih agar tidak menyisakan ID yang sudah tidak ada
+          const setIds = new Set(data.map((item) => item.id));
+          transaksiDipilih.value = transaksiDipilih.value.filter((id) => setIds.has(id));
         })
         .catch(() => tampilkanToast("Gagal mengambil transaksi"));
     }
@@ -432,6 +482,224 @@ createApp({
           transaksiDetail.value = data;
         })
         .catch(() => tampilkanToast("Gagal mengambil detail transaksi"));
+    }
+
+    // === FITUR MANAJEMEN PENGHAPUSAN RIWAYAT TRANSAKSI ===
+
+    // 1. Opsi Multi-Select
+    function togglePilihSemua() {
+      if (apakahSemuaDipilih.value) {
+        transaksiDipilih.value = [];
+      } else {
+        transaksiDipilih.value = transaksiList.value.map((trx) => trx.id);
+      }
+    }
+
+    function togglePilihTransaksi(id) {
+      const idx = transaksiDipilih.value.indexOf(id);
+      if (idx === -1) {
+        transaksiDipilih.value.push(id);
+      } else {
+        transaksiDipilih.value.splice(idx, 1);
+      }
+    }
+
+    // 2. Opsi Berdasarkan Rentang Tanggal
+    function bukaModalHapusTanggal() {
+      const hariIni = tanggalHariIni();
+      modalHapusTanggal.value.tampil = true;
+      modalHapusTanggal.value.mode = "single";
+      modalHapusTanggal.value.tanggal = tanggalFilterTransaksi.value || hariIni;
+      modalHapusTanggal.value.tanggalMulai = hariIni;
+      modalHapusTanggal.value.tanggalSelesai = hariIni;
+      hitungPreviewHapusTanggal();
+    }
+
+    function tutupModalHapusTanggal() {
+      modalHapusTanggal.value.tampil = false;
+    }
+
+    async function hitungPreviewHapusTanggal() {
+      modalHapusTanggal.value.loading = true;
+      try {
+        const payload = {
+          type: "date_range",
+          mode: modalHapusTanggal.value.mode,
+          tanggal: modalHapusTanggal.value.tanggal,
+          tanggal_mulai: modalHapusTanggal.value.tanggalMulai,
+          tanggal_selesai: modalHapusTanggal.value.tanggalSelesai,
+        };
+        const res = await fetch("/api/transactions/preview-delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          modalHapusTanggal.value.totalTransaksi = data.total_transaksi || 0;
+          modalHapusTanggal.value.totalNominal = data.total_nominal || 0;
+        }
+      } catch (e) {
+        console.error("Gagal pratinjau tanggal", e);
+      } finally {
+        modalHapusTanggal.value.loading = false;
+      }
+    }
+
+    // 3. Alur Konfirmasi 2 Tahap (Double Confirmation Flow)
+    function mulaiHapusTerpilih() {
+      if (transaksiDipilih.value.length === 0) {
+        tampilkanToast("Pilih minimal 1 transaksi terlebih dahulu");
+        return;
+      }
+      const count = transaksiDipilih.value.length;
+      const nominal = totalNominalDipilih.value;
+
+      modalKonfirmasiHapus.value = {
+        tampil: true,
+        tahap: 1,
+        tipe: "terpilih",
+        judul: "Hapus Transaksi Terpilih",
+        deskripsi: `Anda akan menghapus ${count} transaksi yang telah Anda centang secara permanen.`,
+        jumlahTransaksi: count,
+        totalNominal: nominal,
+        infoTanggal: `${count} transaksi dipilih`,
+        teksVerifikasiInput: "",
+        kataKunciDibutuhkan: "HAPUS",
+        payloadHapus: {
+          type: "ids",
+          ids: [...transaksiDipilih.value],
+        },
+        sedangMenghapus: false,
+      };
+    }
+
+    function mulaiHapusBerdasarkanTanggal() {
+      if (modalHapusTanggal.value.totalTransaksi === 0) {
+        tampilkanToast("Tidak ada transaksi pada tanggal yang dipilih");
+        return;
+      }
+
+      const isSingle = modalHapusTanggal.value.mode === "single";
+      const infoTgl = isSingle
+        ? `Tanggal ${modalHapusTanggal.value.tanggal}`
+        : `Rentang ${modalHapusTanggal.value.tanggalMulai} s/d ${modalHapusTanggal.value.tanggalSelesai}`;
+
+      modalKonfirmasiHapus.value = {
+        tampil: true,
+        tahap: 1,
+        tipe: "tanggal",
+        judul: "Hapus Berdasarkan Tanggal",
+        deskripsi: `Anda akan menghapus seluruh transaksi pada ${infoTgl} secara permanen.`,
+        jumlahTransaksi: modalHapusTanggal.value.totalTransaksi,
+        totalNominal: modalHapusTanggal.value.totalNominal,
+        infoTanggal: infoTgl,
+        teksVerifikasiInput: "",
+        kataKunciDibutuhkan: "HAPUS",
+        payloadHapus: {
+          type: "date_range",
+          mode: modalHapusTanggal.value.mode,
+          tanggal: modalHapusTanggal.value.tanggal,
+          tanggal_mulai: modalHapusTanggal.value.tanggalMulai,
+          tanggal_selesai: modalHapusTanggal.value.tanggalSelesai,
+        },
+        sedangMenghapus: false,
+      };
+
+      tutupModalHapusTanggal();
+    }
+
+    async function mulaiHapusSemua() {
+      try {
+        const res = await fetch("/api/transactions/preview-delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "all" }),
+        });
+        const data = await res.json();
+        if (!data.sukses || data.total_transaksi === 0) {
+          tampilkanToast("Riwayat transaksi sudah kosong");
+          return;
+        }
+
+        modalKonfirmasiHapus.value = {
+          tampil: true,
+          tahap: 1,
+          tipe: "semua",
+          judul: "HAPUS SELURUH RIWAYAT TRANSAKSI",
+          deskripsi: "PERINGATAN KRUSIAL: Tindakan ini akan menghapus SELURUH catatan riwayat transaksi dari database lokal tanpa terkecuali!",
+          jumlahTransaksi: data.total_transaksi,
+          totalNominal: data.total_nominal,
+          infoTanggal: "Seluruh Transaksi Tercatat",
+          teksVerifikasiInput: "",
+          kataKunciDibutuhkan: "HAPUS",
+          payloadHapus: { type: "all" },
+          sedangMenghapus: false,
+        };
+      } catch (e) {
+        tampilkanToast("Gagal mengambil pratinjau transaksi");
+      }
+    }
+
+    function lanjutKeTahap2() {
+      modalKonfirmasiHapus.value.tahap = 2;
+      modalKonfirmasiHapus.value.teksVerifikasiInput = "";
+    }
+
+    function kembaliKeTahap1() {
+      modalKonfirmasiHapus.value.tahap = 1;
+    }
+
+    function tutupModalKonfirmasiHapus() {
+      modalKonfirmasiHapus.value.tampil = false;
+      modalKonfirmasiHapus.value.teksVerifikasiInput = "";
+      modalKonfirmasiHapus.value.sedangMenghapus = false;
+    }
+
+    async function eksekusiHapusFinal() {
+      if (!apakahTahap2Valid.value) return;
+
+      modalKonfirmasiHapus.value.sedangMenghapus = true;
+      try {
+        const res = await fetch("/api/transactions/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(modalKonfirmasiHapus.value.payloadHapus),
+        });
+
+        const hasil = await res.json();
+        if (!res.ok || !hasil.sukses) {
+          throw new Error(hasil.pesan || "Gagal menghapus riwayat transaksi");
+        }
+
+        tampilkanToast(hasil.pesan || `Berhasil menghapus ${hasil.total_terhapus} transaksi`);
+
+        // Reset transaksi yang dicentang
+        transaksiDipilih.value = [];
+
+        // Bersihkan detail transaksi aktif jika ikut terhapus
+        if (transaksiDetail.value && transaksiDetail.value.transaksi) {
+          const detailId = transaksiDetail.value.transaksi.id;
+          if (
+            modalKonfirmasiHapus.value.tipe === "semua" ||
+            (hasil.ids_terhapus && hasil.ids_terhapus.includes(detailId))
+          ) {
+            transaksiDetail.value = null;
+          }
+        }
+
+        tutupModalKonfirmasiHapus();
+
+        // Refresh riwayat transaksi & rekalkulasi ringkasan laporan
+        ambilTransaksi();
+        ambilRingkasanHariIni();
+        ambilRekapHarian();
+        ambilRekapItemHarian();
+      } catch (err) {
+        tampilkanToast(err.message);
+      } finally {
+        modalKonfirmasiHapus.value.sedangMenghapus = false;
+      }
     }
 
     function ambilLogStok() {
@@ -919,98 +1187,118 @@ createApp({
       }
     });
 
-  return {
-    daftarMenu,
-    kategoriAktif,
-    halamanAktif,
-    daftarKategori,
-    daftarMetode,
-    kataKunciMenu,
-    filterStokRendah,
-    urutkanMenu,
-    menuTersaring,
-    keranjang,
-    totalHarga,
-    toast,
-    sedangMemproses,
-    metodePembayaran,
-    daftarMeja,
-    mejaDipilih,
-    transaksiList,
-    transaksiDetail,
-    tanggalFilterTransaksi,
-    stokLogs,
-    perubahanStok,
-    catatanStok,
-    namaMejaBaru,
-    shiftAktif,
-    saldoAwal,
-    saldoAkhir,
-    catatanShift,
-    rekapHarian,
-    rekapItemHarian,
-    tanggalRekapItem,
-    ringkasanHariIni,
-    menuBaru,
-    menuEdit,
-    modalKonfirmasi,
-    dukungWebp,
-    tampilkanNonaktif,
-    formatRupiah,
-    tambahKeKeranjang,
-    tambahKeKeranjangDenganId,
-    kurangiItem,
-    bersihkanKeranjang,
-    prosesCheckout,
-    ambilTransaksi,
-    filterTransaksiHariIni,
-    resetFilterTransaksi,
-    lihatDetailTransaksi,
-    ambilLogStok,
-    ubahStokMenu,
-    tambahMejaBaru,
-    hapusMeja,
-    bukaShift,
-    tutupShift,
-    ambilRekapItemHarian,
-    filterRekapItemHariIni,
-    resetRekapItem,
-    persenPemasukan,
-    unduhCsvRekap,
-    ambilRingkasanHariIni,
-    pilihFotoMenu,
-    simpanMenuBaru,
-    pilihMenuEdit,
-    pilihFotoEdit,
-    simpanMenuEdit,
-    hapusMenu,
-    aktifkanMenu,
-    jalankanKonfirmasi,
-    tutupKonfirmasi,
-    kompresGambar,
-    uploadFormData,
-    gambarWebp,
-    gambarMenu,
-    // Ekspor Fitur POS Baru
-    modeCetak,
-    setModeCetak,
-    modalStruk,
-    strukAktif,
-    cetakStruk,
-    tutupModalStruk,
-    cetakStrukRiwayat,
-    uangDiterima,
-    uangDiterimaInput,
-    modeInputPecahan,
-    pecahanRupiah,
-    formatNominalAngka,
-    klikPecahan,
-    setUangPas,
-    resetUangDiterima,
-    onInputUangDiterima,
-    kembalian,
-    kurangBayar,
-    apakahUangCukup,
-  };
+    return {
+      daftarMenu,
+      kategoriAktif,
+      halamanAktif,
+      daftarKategori,
+      daftarMetode,
+      kataKunciMenu,
+      filterStokRendah,
+      urutkanMenu,
+      menuTersaring,
+      keranjang,
+      totalHarga,
+      toast,
+      sedangMemproses,
+      metodePembayaran,
+      daftarMeja,
+      mejaDipilih,
+      transaksiList,
+      transaksiDetail,
+      tanggalFilterTransaksi,
+      stokLogs,
+      perubahanStok,
+      catatanStok,
+      namaMejaBaru,
+      shiftAktif,
+      saldoAwal,
+      saldoAkhir,
+      catatanShift,
+      rekapHarian,
+      rekapItemHarian,
+      tanggalRekapItem,
+      ringkasanHariIni,
+      menuBaru,
+      menuEdit,
+      modalKonfirmasi,
+      dukungWebp,
+      tampilkanNonaktif,
+      formatRupiah,
+      tambahKeKeranjang,
+      tambahKeKeranjangDenganId,
+      kurangiItem,
+      bersihkanKeranjang,
+      prosesCheckout,
+      ambilTransaksi,
+      filterTransaksiHariIni,
+      resetFilterTransaksi,
+      lihatDetailTransaksi,
+      ambilLogStok,
+      ubahStokMenu,
+      tambahMejaBaru,
+      hapusMeja,
+      bukaShift,
+      tutupShift,
+      ambilRekapItemHarian,
+      filterRekapItemHariIni,
+      resetRekapItem,
+      persenPemasukan,
+      unduhCsvRekap,
+      ambilRingkasanHariIni,
+      pilihFotoMenu,
+      simpanMenuBaru,
+      pilihMenuEdit,
+      pilihFotoEdit,
+      simpanMenuEdit,
+      hapusMenu,
+      aktifkanMenu,
+      jalankanKonfirmasi,
+      tutupKonfirmasi,
+      kompresGambar,
+      uploadFormData,
+      gambarWebp,
+      gambarMenu,
+      // Ekspor Fitur POS Baru
+      modeCetak,
+      setModeCetak,
+      modalStruk,
+      strukAktif,
+      cetakStruk,
+      tutupModalStruk,
+      cetakStrukRiwayat,
+      uangDiterima,
+      uangDiterimaInput,
+      modeInputPecahan,
+      pecahanRupiah,
+      formatNominalAngka,
+      klikPecahan,
+      setUangPas,
+      resetUangDiterima,
+      onInputUangDiterima,
+      kembalian,
+      kurangBayar,
+      apakahUangCukup,
+      // Ekspor Manajemen Penghapusan Riwayat Transaksi
+      transaksiDipilih,
+      modalHapusTanggal,
+      modalKonfirmasiHapus,
+      apakahSemuaDipilih,
+      jumlahTransaksiDipilih,
+      totalNominalDipilih,
+      apakahTahap2Valid,
+      togglePilihSemua,
+      togglePilihTransaksi,
+      bukaModalHapusTanggal,
+      tutupModalHapusTanggal,
+      hitungPreviewHapusTanggal,
+      mulaiHapusTerpilih,
+      mulaiHapusBerdasarkanTanggal,
+      mulaiHapusSemua,
+      lanjutKeTahap2,
+      kembaliKeTahap1,
+      tutupModalKonfirmasiHapus,
+      eksekusiHapusFinal,
+    };
   },
 }).mount("#app");
