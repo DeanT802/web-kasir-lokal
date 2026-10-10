@@ -20,58 +20,79 @@ function cetakKarcis(hasilCheckout) {
         return;
       }
 
-      printer
-        .font('a')
-        .align('ct')
-        .style('b')
-        .size(1, 1)
-        .text('BASE COFFEE')
-        .text('--------------------------------0') // Garis pemisah 58mm
-        .align('lt')
-        .text(`Waktu : ${new Date(hasilCheckout.tanggal_waktu).toLocaleString('id-ID')}`)
-        .text(`Kasir : Admin`)
-        .text(`Tx ID : ${hasilCheckout.id_transaksi}`)
-        .text(hasilCheckout.meja_nama ? `Meja  : ${hasilCheckout.meja_nama}` : `Meja  : Takeaway`)
-        .text('--------------------------------0'); // Garis pemisah
+      const jumlahSalinan = hasilCheckout.mode_cetak === "double" ? 2 : 1;
+      for (let s = 1; s <= jumlahSalinan; s++) {
+        const labelSalinan = jumlahSalinan === 2
+          ? (s === 1 ? "=== LEMBAR KASIR ===" : "=== LEMBAR PELANGGAN ===")
+          : "";
 
-      // Loop item transaksi
-      hasilCheckout.items.forEach(item => {
-        // Baris 1: Nama item
-        printer.text(item.nama);
-        
-        // Baris 2: Qty x Harga   Subtotal
-        // Hitung jarak spasi agar sejajar kanan
-        const qty_harga = `${item.kuantitas} x Rp${item.harga.toLocaleString('id-ID')}`;
-        const subtotal = `Rp${item.subtotal.toLocaleString('id-ID')}`;
-        
-        // Ukuran 58mm rata-rata muat 32 karakter
-        let spaceLen = 32 - qty_harga.length - subtotal.length;
-        if(spaceLen < 1) spaceLen = 1;
-        const spaces = ' '.repeat(spaceLen);
-        
-        printer.text(`${qty_harga}${spaces}${subtotal}`);
-      });
+        printer
+          .font('a')
+          .align('ct')
+          .style('b')
+          .size(1, 1)
+          .text('BASE COFFEE');
 
-      printer.text('--------------------------------0');
+        if (labelSalinan) {
+          printer.style('normal').text(labelSalinan);
+        }
 
-      const totalTeks = `Rp${hasilCheckout.total_harga.toLocaleString('id-ID')}`;
-      let totalSpaceLen = 32 - "TOTAL".length - totalTeks.length;
-      if(totalSpaceLen < 1) totalSpaceLen = 1;
-      printer.style('b').text(`TOTAL${' '.repeat(totalSpaceLen)}${totalTeks}`);
+        printer
+          .text('--------------------------------')
+          .align('lt')
+          .text(`Waktu : ${new Date(hasilCheckout.tanggal_waktu).toLocaleString('id-ID')}`)
+          .text(`Kasir : Admin`)
+          .text(`Tx ID : ${hasilCheckout.id_transaksi}`)
+          .text(hasilCheckout.meja_nama ? `Meja  : ${hasilCheckout.meja_nama}` : `Meja  : Takeaway`)
+          .text('--------------------------------');
 
-      const metodeTeks = hasilCheckout.metode_pembayaran.toUpperCase();
-      let bayarSpaceLen = 32 - "BAYAR".length - metodeTeks.length;
-      if(bayarSpaceLen < 1) bayarSpaceLen = 1;
-      printer.style('normal').text(`BAYAR${' '.repeat(bayarSpaceLen)}${metodeTeks}`);
+        // Loop item transaksi
+        hasilCheckout.items.forEach(item => {
+          printer.text(item.nama);
+          const qty_harga = `${item.kuantitas} x Rp${item.harga.toLocaleString('id-ID')}`;
+          const subtotal = `Rp${item.subtotal.toLocaleString('id-ID')}`;
+          let spaceLen = 32 - qty_harga.length - subtotal.length;
+          if (spaceLen < 1) spaceLen = 1;
+          printer.text(`${qty_harga}${' '.repeat(spaceLen)}${subtotal}`);
+        });
 
-      printer
-        .text('')
-        .align('ct')
-        .text('Terima kasih')
-        .text('Silakan datang kembali')
-        .feed(3) // Feed kertas agar potongannya pas
-        .cut()
-        .close();
+        printer.text('--------------------------------');
+
+        const totalTeks = `Rp${hasilCheckout.total_harga.toLocaleString('id-ID')}`;
+        let totalSpaceLen = 32 - "TOTAL".length - totalTeks.length;
+        if (totalSpaceLen < 1) totalSpaceLen = 1;
+        printer.style('b').text(`TOTAL${' '.repeat(totalSpaceLen)}${totalTeks}`);
+
+        const metodeTeks = (hasilCheckout.metode_pembayaran || "TUNAI").toUpperCase();
+        let bayarSpaceLen = 32 - "METODE".length - metodeTeks.length;
+        if (bayarSpaceLen < 1) bayarSpaceLen = 1;
+        printer.style('normal').text(`METODE${' '.repeat(bayarSpaceLen)}${metodeTeks}`);
+
+        if (hasilCheckout.metode_pembayaran === 'tunai' && hasilCheckout.uang_diterima) {
+          const tunaiTeks = `Rp${Number(hasilCheckout.uang_diterima).toLocaleString('id-ID')}`;
+          let tunaiSpace = 32 - "TUNAI".length - tunaiTeks.length;
+          if (tunaiSpace < 1) tunaiSpace = 1;
+          printer.text(`TUNAI${' '.repeat(tunaiSpace)}${tunaiTeks}`);
+
+          const kembaliTeks = `Rp${Number(hasilCheckout.kembalian || 0).toLocaleString('id-ID')}`;
+          let kembaliSpace = 32 - "KEMBALI".length - kembaliTeks.length;
+          if (kembaliSpace < 1) kembaliSpace = 1;
+          printer.text(`KEMBALI${' '.repeat(kembaliSpace)}${kembaliTeks}`);
+        }
+
+        printer
+          .text('')
+          .align('ct')
+          .text('Terima kasih')
+          .text('Silakan datang kembali')
+          .feed(2);
+
+        if (jumlahSalinan > 1 && s === 1) {
+          printer.text('- - - - - - - - - - - - - - - -').feed(1);
+        }
+      }
+
+      printer.feed(2).cut().close();
     });
   } catch (err) {
     console.error("Kesalahan proses cetak:", err);

@@ -92,6 +92,132 @@ createApp({
       keranjang.value.reduce((total, item) => total + item.subtotal, 0)
     );
 
+    // === FITUR 1: MODE CETAK STRUK (Single vs Double) ===
+    const modeCetak = ref(localStorage.getItem("pos_mode_cetak") || "single");
+    const modalStruk = ref({ tampil: false, data: null });
+    const strukAktif = ref(null);
+
+    watch(modeCetak, (modeBaru) => {
+      localStorage.setItem("pos_mode_cetak", modeBaru);
+    });
+
+    function setModeCetak(mode) {
+      modeCetak.value = mode;
+      localStorage.setItem("pos_mode_cetak", mode);
+      tampilkanToast(
+        mode === "double"
+          ? "Mode Cetak: Double (Lembar Kasir & Pelanggan)"
+          : "Mode Cetak: Single (1 Lembar Struk)"
+      );
+    }
+
+    function cetakStruk(dataTrans = null) {
+      const data = dataTrans || modalStruk.value.data || strukAktif.value;
+      if (!data) {
+        tampilkanToast("Tidak ada data struk yang dapat dicetak");
+        return;
+      }
+      strukAktif.value = data;
+      setTimeout(() => {
+        window.print();
+      }, 150);
+    }
+
+    function tutupModalStruk() {
+      modalStruk.value = { tampil: false, data: null };
+    }
+
+    function cetakStrukRiwayat(trxDetail) {
+      if (!trxDetail || !trxDetail.transaksi) return;
+      const dataStruk = {
+        id_transaksi: trxDetail.transaksi.id,
+        tanggal_waktu: trxDetail.transaksi.tanggal_waktu,
+        total_harga: trxDetail.transaksi.total_harga,
+        metode_pembayaran: trxDetail.transaksi.metode_pembayaran,
+        uang_diterima: trxDetail.transaksi.uang_diterima || trxDetail.transaksi.total_harga,
+        kembalian: trxDetail.transaksi.kembalian || 0,
+        mode_cetak: trxDetail.transaksi.mode_cetak || modeCetak.value,
+        items: trxDetail.items || [],
+        meja_nama: trxDetail.transaksi.meja_nama,
+      };
+      cetakStruk(dataStruk);
+    }
+
+    // === FITUR 2: TOMBOL UANG PECAHAN & INPUT TUNAI ===
+    const uangDiterima = ref(0);
+    const uangDiterimaInput = ref("");
+    const modeInputPecahan = ref("set"); // 'set' = ganti nominal, 'tambah' = akumulasi (+)
+
+    const pecahanRupiah = [
+      { nilai: 1000, label: "Rp 1.000" },
+      { nilai: 2000, label: "Rp 2.000" },
+      { nilai: 5000, label: "Rp 5.000" },
+      { nilai: 10000, label: "Rp 10.000" },
+      { nilai: 20000, label: "Rp 20.000" },
+      { nilai: 50000, label: "Rp 50.000" },
+      { nilai: 100000, label: "Rp 100.000" },
+    ];
+
+    function formatNominalAngka(angka) {
+      if (!angka && angka !== 0) return "";
+      return new Intl.NumberFormat("id-ID").format(angka);
+    }
+
+    function klikPecahan(nominal) {
+      if (modeInputPecahan.value === "tambah") {
+        uangDiterima.value = (Number(uangDiterima.value) || 0) + nominal;
+      } else {
+        uangDiterima.value = nominal;
+      }
+      uangDiterimaInput.value = formatNominalAngka(uangDiterima.value);
+    }
+
+    function setUangPas() {
+      if (totalHarga.value <= 0) return;
+      uangDiterima.value = totalHarga.value;
+      uangDiterimaInput.value = formatNominalAngka(uangDiterima.value);
+    }
+
+    function resetUangDiterima() {
+      uangDiterima.value = 0;
+      uangDiterimaInput.value = "";
+    }
+
+    function onInputUangDiterima(event) {
+      const raw = event.target.value.replace(/[^0-9]/g, "");
+      const angka = raw ? parseInt(raw, 10) : 0;
+      uangDiterima.value = angka;
+      uangDiterimaInput.value = angka > 0 ? formatNominalAngka(angka) : "";
+    }
+
+    // === FITUR 3: KALKULASI KEMBALIAN OTOMATIS & VALIDASI PEMBAYARAN ===
+    const kembalian = computed(() => {
+      if (metodePembayaran.value !== "tunai") return 0;
+      const bayar = Number(uangDiterima.value) || 0;
+      return Math.max(0, bayar - totalHarga.value);
+    });
+
+    const kurangBayar = computed(() => {
+      if (metodePembayaran.value !== "tunai") return 0;
+      const bayar = Number(uangDiterima.value) || 0;
+      return Math.max(0, totalHarga.value - bayar);
+    });
+
+    const apakahUangCukup = computed(() => {
+      if (keranjang.value.length === 0 || totalHarga.value <= 0) return false;
+      if (metodePembayaran.value === "tunai") {
+        return (Number(uangDiterima.value) || 0) >= totalHarga.value;
+      }
+      return true;
+    });
+
+    watch(metodePembayaran, (baru) => {
+      if (baru !== "tunai" && totalHarga.value > 0) {
+        uangDiterima.value = totalHarga.value;
+        uangDiterimaInput.value = formatNominalAngka(totalHarga.value);
+      }
+    });
+
     function tampilkanToast(pesan) {
       // Notifikasi cepat untuk operator kasir.
       toast.value = { tampil: true, pesan };
@@ -209,17 +335,29 @@ createApp({
 
     function bersihkanKeranjang() {
       keranjang.value = [];
+      resetUangDiterima();
     }
 
     async function prosesCheckout() {
-      // Kirim transaksi ke backend dengan metode pembayaran default.
       if (keranjang.value.length === 0) {
         tampilkanToast("Keranjang masih kosong");
         return;
       }
 
+      if (metodePembayaran.value === "tunai" && !apakahUangCukup.value) {
+        tampilkanToast(`Uang diterima belum cukup. Kurang ${formatRupiah(kurangBayar.value)}`);
+        return;
+      }
+
       sedangMemproses.value = true;
       try {
+        const nominalBayar = metodePembayaran.value === "tunai"
+          ? (Number(uangDiterima.value) || totalHarga.value)
+          : totalHarga.value;
+        const nominalKembalian = metodePembayaran.value === "tunai"
+          ? kembalian.value
+          : 0;
+
         const payload = {
           items: keranjang.value.map((item) => ({
             menu_id: item.menu_id,
@@ -227,6 +365,9 @@ createApp({
           })),
           metode_pembayaran: metodePembayaran.value,
           meja_id: mejaDipilih.value,
+          uang_diterima: nominalBayar,
+          kembalian: nominalKembalian,
+          mode_cetak: modeCetak.value,
         };
 
         const response = await fetch("/api/checkout", {
@@ -240,12 +381,21 @@ createApp({
           throw new Error(error.pesan || "Checkout gagal");
         }
 
-        await response.json();
-        tampilkanToast("Transaksi berhasil");
+        const hasil = await response.json();
+        tampilkanToast("Transaksi berhasil! Struk siap dicetak.");
+
+        // Simpan data struk dan tampilkan modal preview struk
+        strukAktif.value = hasil;
+        modalStruk.value = {
+          tampil: true,
+          data: hasil,
+        };
+
         bersihkanKeranjang();
         transaksiDetail.value = null;
         ambilMenu();
         ambilTransaksi();
+        ambilRingkasanHariIni();
       } catch (error) {
         tampilkanToast(error.message);
       } finally {
@@ -840,7 +990,27 @@ createApp({
     kompresGambar,
     uploadFormData,
     gambarWebp,
-      gambarMenu,
+    gambarMenu,
+    // Ekspor Fitur POS Baru
+    modeCetak,
+    setModeCetak,
+    modalStruk,
+    strukAktif,
+    cetakStruk,
+    tutupModalStruk,
+    cetakStrukRiwayat,
+    uangDiterima,
+    uangDiterimaInput,
+    modeInputPecahan,
+    pecahanRupiah,
+    formatNominalAngka,
+    klikPecahan,
+    setUangPas,
+    resetUangDiterima,
+    onInputUangDiterima,
+    kembalian,
+    kurangBayar,
+    apakahUangCukup,
   };
   },
 }).mount("#app");

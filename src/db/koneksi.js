@@ -50,6 +50,9 @@ function inisialisasiDatabase() {
   // Pastikan kolom tambahan tersedia jika database lama sudah ada.
   tambahKolomJikaBelumAda("transactions", "meja_id", "INTEGER");
   tambahKolomJikaBelumAda("transactions", "meja_nama", "TEXT");
+  tambahKolomJikaBelumAda("transactions", "uang_diterima", "INTEGER");
+  tambahKolomJikaBelumAda("transactions", "kembalian", "INTEGER");
+  tambahKolomJikaBelumAda("transactions", "mode_cetak", "TEXT");
 
   // Tabel detail transaksi: item per transaksi.
   db.exec(`

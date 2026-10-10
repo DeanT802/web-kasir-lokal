@@ -3,7 +3,7 @@ const { cetakKarcis } = require("../services/printerThermal");
 
 // Proses checkout: simpan transaksi, detail, dan kurangi stok dengan transaksi DB.
 function checkout(req, res) {
-  const { items, metode_pembayaran, meja_id } = req.body;
+  const { items, metode_pembayaran, meja_id, uang_diterima, kembalian, mode_cetak } = req.body;
 
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ pesan: "Item keranjang kosong" });
@@ -46,7 +46,7 @@ function checkout(req, res) {
 
       const subtotal = menu.harga * item.kuantitas;
       totalHarga += subtotal;
-  totalItem += item.kuantitas;
+      totalItem += item.kuantitas;
 
       detailTransaksi.push({
         menu_id: menu.id,
@@ -63,17 +63,24 @@ function checkout(req, res) {
       );
     }
 
+    const uangDiterimaNominal = Number(uang_diterima) || totalHarga;
+    const kembalianNominal = Number(kembalian) >= 0 ? Number(kembalian) : Math.max(0, uangDiterimaNominal - totalHarga);
+    const modeCetakPilihan = mode_cetak === "double" ? "double" : "single";
+
     // Simpan header transaksi.
     const hasilTransaksi = db
       .prepare(
-        "INSERT INTO transactions (tanggal_waktu, total_harga, metode_pembayaran, meja_id, meja_nama) VALUES (?, ?, ?, ?, ?)"
+        "INSERT INTO transactions (tanggal_waktu, total_harga, metode_pembayaran, meja_id, meja_nama, uang_diterima, kembalian, mode_cetak) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       )
       .run(
         waktuTransaksi,
         totalHarga,
         metode_pembayaran || "tunai",
         meja_id || null,
-        mejaNama
+        mejaNama,
+        uangDiterimaNominal,
+        kembalianNominal,
+        modeCetakPilihan
       );
 
     const idTransaksi = hasilTransaksi.lastInsertRowid;
@@ -99,6 +106,9 @@ function checkout(req, res) {
       tanggal_waktu: waktuTransaksi,
       total_harga: totalHarga,
       metode_pembayaran: metode_pembayaran || "tunai",
+      uang_diterima: uangDiterimaNominal,
+      kembalian: kembalianNominal,
+      mode_cetak: modeCetakPilihan,
       items: detailTransaksi,
       total_item: totalItem,
       meja_id: meja_id || null,
